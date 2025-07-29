@@ -12,9 +12,9 @@ updates:
       time: "04:00"
     open-pull-requests-limit: 5
     reviewers:
-      - "@maintainers"
+      - "danieleschmidt"
     assignees:
-      - "@security-team"
+      - "danieleschmidt"
     labels:
       - "dependencies"
       - "security"
@@ -55,7 +55,7 @@ updates:
       time: "05:00"
     open-pull-requests-limit: 3
     reviewers:
-      - "@devops-team"
+      - "danieleschmidt"
     labels:
       - "docker"
       - "infrastructure"
@@ -69,7 +69,7 @@ updates:
       time: "06:00"
     open-pull-requests-limit: 3
     reviewers:
-      - "@devops-team"
+      - "danieleschmidt"
     labels:
       - "github-actions"
       - "ci-cd"
