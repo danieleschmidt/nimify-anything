@@ -58,8 +58,11 @@ body:
         - OS: [e.g. Ubuntu 20.04, Windows 10, macOS 12.0]
         - Python version: [e.g. 3.10.5]
         - Docker version: [e.g. 20.10.17]
+        - Kubernetes version: [e.g. 1.27.3, N/A]
         - GPU: [e.g. NVIDIA RTX 3080, None]
         - CUDA version: [e.g. 11.7, N/A]
+        - TensorRT version: [e.g. 10.0.0, N/A]
+        - ONNX Runtime version: [e.g. 1.18.0, N/A]
     validations:
       required: true
 

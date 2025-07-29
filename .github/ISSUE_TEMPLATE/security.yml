@@ -1,0 +1,88 @@
+name: Security Vulnerability Report
+description: Report a security vulnerability (please use security@yourdomain.com for sensitive issues)
+title: "[SECURITY] "
+labels: [security, needs-immediate-attention]
+assignees: [danieleschmidt]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Security Notice
+        
+        For sensitive security issues, please email security@yourdomain.com instead of using this public form.
+        
+        This form is for non-sensitive security improvements and general security discussions.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of nimify-anything are you reporting this for?
+      placeholder: ex. 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Level
+      description: How severe is this security issue?
+      options:
+        - Low (security hardening, non-exploitable)
+        - Medium (potential security issue, requires specific conditions)
+        - High (exploitable under common conditions)
+        - Critical (immediate action required)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Security Issue Description
+      description: Describe the security issue or improvement suggestion
+      placeholder: Please be as detailed as possible while being mindful of sensitive information
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Potential Impact
+      description: What could happen if this issue is exploited?
+      placeholder: Describe the potential impact on users, data, or systems
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Suggested Mitigation
+      description: Do you have suggestions for how to fix or mitigate this issue?
+      placeholder: Any ideas for remediation or workarounds
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Environment where this was discovered
+      value: |
+        - OS: [e.g. Ubuntu 20.04]
+        - Python version: [e.g. 3.10.5]
+        - Docker version: [e.g. 20.10.17]
+        - Kubernetes version: [e.g. 1.27.3]
+        - Network configuration: [e.g. internal, public]
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Security Checklist
+      options:
+        - label: I have checked that this issue has not been reported before
+          required: true
+        - label: I understand that sensitive security issues should be reported via email
+          required: true
+        - label: I agree to follow responsible disclosure practices
+          required: true
+        - label: I agree to follow this project's Code of Conduct
+          required: true
