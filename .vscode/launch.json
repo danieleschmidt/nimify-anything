@@ -1,0 +1,104 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Nimify CLI",
+            "type": "python",
+            "request": "launch",
+            "module": "nimify.cli",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": ["--help"]
+        },
+        {
+            "name": "Nimify Create Service",
+            "type": "python",
+            "request": "launch",
+            "module": "nimify.cli",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "NIMIFY_LOG_LEVEL": "DEBUG"
+            },
+            "args": [
+                "create",
+                "${input:modelPath}",
+                "--name",
+                "${input:serviceName}"
+            ]
+        },
+        {
+            "name": "Python: Pytest Current File",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": [
+                "${file}",
+                "-v"
+            ]
+        },
+        {
+            "name": "Python: Pytest All Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": [
+                "tests/",
+                "-v",
+                "--cov=src",
+                "--cov-report=html"
+            ]
+        },
+        {
+            "name": "Docker: Build Container",
+            "type": "docker-build",
+            "label": "docker-build",
+            "platform": "python",
+            "dockerBuild": {
+                "tag": "nimify-anything:dev",
+                "dockerfile": "${workspaceFolder}/Dockerfile",
+                "context": "${workspaceFolder}",
+                "pull": true
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "modelPath",
+            "description": "Path to model file",
+            "default": "model.onnx",
+            "type": "promptString"
+        },
+        {
+            "id": "serviceName", 
+            "description": "Name for the NIM service",
+            "default": "my-service",
+            "type": "promptString"
+        }
+    ]
+}

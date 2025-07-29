@@ -220,7 +220,6 @@ triton_models/
 nim_cache/
 
 # Docker
-.dockerignore
 docker-compose.override.yml
 .docker/
 
@@ -248,8 +247,12 @@ weights/
 # Logs and monitoring
 *.log
 logs/
-monitoring/
+monitoring/data/
+monitoring/logs/
 metrics/
+!monitoring/prometheus.yml
+!monitoring/alert_rules.yml
+!monitoring/dashboards/
 
 # IDE specific
 .vscode/settings.json
