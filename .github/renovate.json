@@ -1,0 +1,111 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Advanced dependency management with AI/ML package awareness",
+  "extends": [
+    "config:base",
+    "schedule:weeklyNonOfficeHours",
+    "group:allNonMajor"
+  ],
+  "timezone": "UTC",
+  "labels": ["dependencies", "renovate"],
+  "assignees": ["@maintainers"],
+  "reviewers": ["@security-team"],
+  "prConcurrentLimit": 3,
+  "branchConcurrentLimit": 5,
+  "commitMessagePrefix": "chore(deps):",
+  "semanticCommits": "enabled",
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "separateMinorPatch": false,
+  "pinDigests": true,
+  "followTag": "latest",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**"
+  ],
+  "packageRules": [
+    {
+      "description": "ML/AI frameworks - conservative updates",
+      "matchPackagePatterns": [
+        "^onnx",
+        "^tensorrt",
+        "^tritonclient",
+        "^nvidia-",
+        "^torch",
+        "^tensorflow"
+      ],
+      "groupName": "ML frameworks",
+      "major": {
+        "enabled": false
+      },
+      "minor": {
+        "schedule": ["before 6am on monday"]
+      },
+      "reviewers": ["@ml-team", "@security-team"],
+      "labels": ["ml-dependencies", "high-priority"]
+    },
+    {
+      "description": "Security tools - immediate updates",
+      "matchPackageNames": [
+        "bandit",
+        "safety",
+        "detect-secrets",
+        "semgrep"
+      ],
+      "groupName": "Security tools",
+      "schedule": ["at any time"],
+      "automerge": true,
+      "platformAutomerge": true,
+      "labels": ["security", "auto-merge"]
+    },
+    {
+      "description": "Development tools",
+      "matchPackagePatterns": [
+        "^pytest",
+        "^black$",
+        "^ruff$",
+        "^mypy$",
+        "^pre-commit$"
+      ],
+      "groupName": "Development tools",
+      "schedule": ["before 6am on monday"],
+      "automerge": true,
+      "platformAutomerge": true,
+      "labels": ["dev-tools", "auto-merge"]
+    },
+    {
+      "description": "Docker base images - security updates",
+      "matchDatasources": ["docker"],
+      "matchPackagePatterns": ["^nvcr.io/nvidia/"],
+      "groupName": "NVIDIA base images",
+      "schedule": ["before 6am on monday"],
+      "labels": ["docker", "nvidia", "security"]
+    },
+    {
+      "description": "Production dependencies - careful updates",
+      "matchPackageNames": [
+        "fastapi",
+        "uvicorn",
+        "pydantic",
+        "prometheus-client"
+      ],
+      "groupName": "Production dependencies",
+      "schedule": ["before 6am on monday"],
+      "minimumReleaseAge": "3 days",
+      "labels": ["production", "careful-review"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "vulnerability"],
+    "assignees": ["@security-team"],
+    "schedule": ["at any time"],
+    "prPriority": 10
+  },
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard - Nimify",
+  "dependencyDashboardLabels": ["dependencies", "dashboard"],
+  "configMigration": true
+}

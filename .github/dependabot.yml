@@ -1,0 +1,75 @@
+# Automated dependency updates for enhanced security and maintenance
+# This configuration ensures regular updates while maintaining stability
+
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@maintainers"
+    assignees:
+      - "@security-team"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    ignore:
+      # Ignore major version updates for critical ML libraries
+      - dependency-name: "onnx*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tensorrt*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      ml-frameworks:
+        patterns:
+          - "onnx*"
+          - "onnxruntime*"
+          - "tensorrt*"
+          - "tritonclient*"
+      security-tools:
+        patterns:
+          - "bandit"
+          - "safety"
+          - "detect-secrets"
+      dev-tools:
+        patterns:
+          - "black"
+          - "ruff"
+          - "mypy"
+          - "pytest*"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "@devops-team"
+    labels:
+      - "docker"
+      - "infrastructure"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "@devops-team"
+    labels:
+      - "github-actions"
+      - "ci-cd"
