@@ -1,0 +1,24 @@
+# Global owners
+* @danieleschmidt
+
+# Core source code
+/src/ @danieleschmidt
+/tests/ @danieleschmidt
+
+# Infrastructure and deployment
+/docker-compose.yml @danieleschmidt
+/Dockerfile @danieleschmidt
+/monitoring/ @danieleschmidt
+
+# Documentation
+/docs/ @danieleschmidt
+/README.md @danieleschmidt
+
+# Security and compliance
+/SECURITY.md @danieleschmidt
+/.secrets.baseline @danieleschmidt
+/scripts/compliance-check.py @danieleschmidt
+
+# Build and packaging
+/pyproject.toml @danieleschmidt
+/Makefile @danieleschmidt
