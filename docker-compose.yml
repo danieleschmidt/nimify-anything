@@ -1,0 +1,119 @@
+# Docker Compose configuration for Nimify development and testing
+version: '3.8'
+
+services:
+  # Main nimify application
+  nimify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: nimify-dev
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./models:/models:rw
+      - model-cache:/cache
+    environment:
+      - PYTHONPATH=/app/src
+      - NIMIFY_MODEL_CACHE=/cache
+      - NIMIFY_LOG_LEVEL=INFO
+    networks:
+      - nimify-network
+    profiles:
+      - dev
+
+  # NVIDIA Triton server for testing NIM services
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.06-py3
+    container_name: triton-server
+    ports:
+      - "8000:8000"  # HTTP
+      - "8001:8001"  # GRPC
+      - "8002:8002"  # Metrics
+    volumes:
+      - ./models:/models:ro
+      - triton-cache:/tmp
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    command: ["tritonserver", "--model-repository=/models", "--strict-model-config=false"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - nimify-network
+    profiles:
+      - inference
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - nimify-network
+    profiles:
+      - monitoring
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - nimify-network
+    profiles:
+      - monitoring
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - nimify-network
+    profiles:
+      - cache
+
+networks:
+  nimify-network:
+    driver: bridge
+
+volumes:
+  model-cache:
+    driver: local
+  triton-cache:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-data:
+    driver: local
