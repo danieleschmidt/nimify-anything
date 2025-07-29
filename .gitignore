@@ -205,3 +205,52 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# NVIDIA/CUDA/ML specific
+*.engine
+*.plan
+*.uff
+*.pb
+*.onnx
+*.trt
+*.tensorrt
+.cache/
+model_cache/
+triton_models/
+nim_cache/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+.docker/
+
+# Kubernetes
+*.kubeconfig
+k8s-secrets/
+
+# Secrets and API keys
+.env.local
+.env.*.local
+secrets/
+*.key
+*.pem
+*.crt
+api_keys.txt
+
+# ML Model artifacts
+models/
+checkpoints/
+weights/
+*.h5
+*.pkl
+*.joblib
+
+# Logs and monitoring
+*.log
+logs/
+monitoring/
+metrics/
+
+# IDE specific
+.vscode/settings.json
+.idea/workspace.xml
