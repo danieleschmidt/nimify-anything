@@ -1,0 +1,115 @@
+# Prometheus alerting rules for Nimify services
+groups:
+  - name: nimify_alerts
+    rules:
+      # High inference latency
+      - alert: HighInferenceLatency
+        expr: histogram_quantile(0.95, sum(rate(nim_request_duration_seconds_bucket[5m])) by (le, service)) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          component: nimify
+        annotations:
+          summary: "High inference latency detected"
+          description: "95th percentile latency for {{ $labels.service }} is {{ $value }}s, exceeding 500ms threshold"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: sum(rate(nim_request_count_total{status!~"2.."}[5m])) by (service) / sum(rate(nim_request_count_total[5m])) by (service) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          component: nimify
+        annotations:
+          summary: "High error rate in NIM service"
+          description: "Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }}, exceeding 5% threshold"
+
+      # GPU utilization too high
+      - alert: HighGPUUtilization
+        expr: avg(dcgm_gpu_utilization) by (gpu, instance) > 95
+        for: 5m
+        labels:
+          severity: warning
+          component: gpu
+        annotations:
+          summary: "High GPU utilization"
+          description: "GPU {{ $labels.gpu }} on {{ $labels.instance }} has {{ $value }}% utilization for >5 minutes"
+
+      # Service down
+      - alert: NimifyServiceDown
+        expr: up{job=~"nimify.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: nimify
+        annotations:
+          summary: "Nimify service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 30 seconds"
+
+      # Memory usage high
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes{container=~"nimify.*"} / container_spec_memory_limit_bytes{container=~"nimify.*"}) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          component: nimify
+        annotations:
+          summary: "High memory usage in Nimify container"
+          description: "Memory usage in {{ $labels.container }} is {{ $value | humanizePercentage }} of limit"
+
+      # Queue size growing
+      - alert: HighQueueSize
+        expr: nim_queue_size > 100
+        for: 1m
+        labels:
+          severity: warning
+          component: nimify
+        annotations:
+          summary: "Request queue size is high"
+          description: "Queue size for {{ $labels.service }} is {{ $value }}, indicating potential bottleneck"
+
+      # Batch size efficiency
+      - alert: LowBatchEfficiency
+        expr: avg(nim_batch_size_histogram) by (service) < 4
+        for: 5m
+        labels:
+          severity: info
+          component: nimify
+        annotations:
+          summary: "Low batching efficiency"
+          description: "Average batch size for {{ $labels.service }} is {{ $value }}, consider optimizing batching"
+
+      # Model loading time
+      - alert: SlowModelLoading
+        expr: nim_model_loading_time_seconds > 60
+        for: 0m
+        labels:
+          severity: warning
+          component: nimify
+        annotations:
+          summary: "Slow model loading detected"
+          description: "Model loading time for {{ $labels.service }} is {{ $value }}s, exceeding 60s threshold"
+
+  - name: infrastructure_alerts
+    rules:
+      # Disk space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }} full"
+
+      # CUDA out of memory
+      - alert: CUDAOutOfMemory
+        expr: increase(dcgm_gpu_memory_used[5m]) > 0 and dcgm_gpu_memory_used / dcgm_gpu_memory_total > 0.95
+        for: 1m
+        labels:
+          severity: critical
+          component: gpu
+        annotations:
+          summary: "GPU memory nearly exhausted"
+          description: "GPU {{ $labels.gpu }} memory usage is {{ $value | humanizePercentage }}, may cause CUDA OOM errors"
