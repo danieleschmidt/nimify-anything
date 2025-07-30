@@ -1,0 +1,91 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2025-01-30T00:00:00Z",
+    "tools": [
+      {
+        "vendor": "Terragon Labs",
+        "name": "nimify-anything",
+        "version": "0.1.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "bom-ref": "nimify-anything@0.1.0",
+      "name": "nimify-anything",
+      "version": "0.1.0",
+      "description": "CLI that wraps any ONNX or TensorRT engine into an NVIDIA NIM microservice",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "fastapi@0.110.0",
+      "name": "fastapi",
+      "version": ">=0.110.0",
+      "description": "FastAPI framework, high performance, easy to learn, fast to code, ready for production",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/fastapi@0.110.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "uvicorn@0.30.0",
+      "name": "uvicorn",
+      "version": ">=0.30.0",
+      "description": "The lightning-fast ASGI server",
+      "purl": "pkg:pypi/uvicorn@0.30.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pydantic@2.0.0",
+      "name": "pydantic",
+      "version": ">=2.0.0",
+      "description": "Data validation and settings management using python type hints",
+      "purl": "pkg:pypi/pydantic@2.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "onnx@1.16.0",
+      "name": "onnx",
+      "version": ">=1.16.0",
+      "description": "Open Neural Network Exchange",
+      "purl": "pkg:pypi/onnx@1.16.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "tritonclient@2.45.0",
+      "name": "tritonclient",
+      "version": ">=2.45.0",
+      "description": "Python client library and utilities for communicating with Triton Inference Server",
+      "purl": "pkg:pypi/tritonclient@2.45.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "nimify-anything@0.1.0",
+      "dependsOn": [
+        "fastapi@0.110.0",
+        "uvicorn@0.30.0",
+        "pydantic@2.0.0",
+        "onnx@1.16.0",
+        "tritonclient@2.45.0"
+      ]
+    }
+  ]
+}
