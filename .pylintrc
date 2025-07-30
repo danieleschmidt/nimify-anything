@@ -1,0 +1,32 @@
+[MAIN]
+load-plugins=pylint.extensions.docparams,
+             pylint.extensions.docstyle,
+             pylint.extensions.typing
+
+[MESSAGES CONTROL]
+disable=missing-docstring,
+        too-few-public-methods,
+        too-many-arguments,
+        too-many-instance-attributes,
+        too-many-locals,
+        too-many-branches,
+        line-too-long,
+        invalid-name,
+        duplicate-code
+
+[FORMAT]
+max-line-length=88
+good-names=i,j,k,ex,Run,_,id,db,ai,ml,nim,gpu
+
+[DESIGN]
+max-args=8
+max-locals=20
+max-returns=8
+max-branches=15
+max-statements=60
+
+[IMPORTS]
+known-third-party=fastapi,pydantic,click,pytest,docker
+
+[TYPECHECK]
+generated-members=torch.*,tensorflow.*,numpy.*
