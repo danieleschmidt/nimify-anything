@@ -1,0 +1,137 @@
+# Development-focused Docker Compose override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+version: '3.8'
+
+services:
+  nimify:
+    build:
+      target: builder
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    volumes:
+      # Mount source for live development
+      - ./src:/app/src:rw
+      - ./tests:/app/tests:rw
+      - ./docs:/app/docs:rw
+      # Development model storage
+      - ./dev-models:/models:rw
+      - dev-cache:/cache
+    environment:
+      - NIMIFY_ENV=development
+      - DEBUG=true
+      - PYTHONPATH=/app/src
+      - NIMIFY_LOG_LEVEL=DEBUG
+      - SKIP_GPU_CHECK=true
+      - MOCK_SERVICES=true
+    ports:
+      - "8000:8000"  # Development server
+      - "5678:5678"  # Debugger port
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client", "-m", "nimify.cli", "server", "--reload"]
+    profiles:
+      - dev
+      - debug
+
+  # Lightweight development database
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: postgres-dev
+    environment:
+      - POSTGRES_DB=nimify_dev
+      - POSTGRES_USER=nimify
+      - POSTGRES_PASSWORD=dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - nimify-network
+    profiles:
+      - dev
+      - db
+
+  # Local container registry for testing
+  registry:
+    image: registry:2
+    container_name: local-registry
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+    environment:
+      - REGISTRY_DELETE_ENABLED=true
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    networks:
+      - nimify-network
+    profiles:
+      - dev
+      - registry
+
+  # MinIO for S3-compatible storage testing
+  minio:
+    image: minio/minio:latest
+    container_name: minio-dev
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    networks:
+      - nimify-network
+    profiles:
+      - dev
+      - storage
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.49
+    container_name: jaeger-dev
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "6831:6831/udp"  # UDP agent
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - nimify-network
+    profiles:
+      - dev
+      - tracing
+
+  # Development load balancer
+  nginx-dev:
+    image: nginx:alpine
+    container_name: nginx-dev
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+      - dev-ssl-certs:/etc/ssl/certs
+    depends_on:
+      - nimify
+    networks:
+      - nimify-network
+    profiles:
+      - dev
+      - proxy
+
+volumes:
+  dev-cache:
+    driver: local
+  postgres-dev-data:
+    driver: local
+  registry-data:
+    driver: local
+  minio-data:
+    driver: local
+  dev-ssl-certs:
+    driver: local
+
+networks:
+  nimify-network:
+    external: false

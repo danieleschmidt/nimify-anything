@@ -1,0 +1,357 @@
+name: Deployment
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      version:
+        description: 'Version to deploy (leave empty for latest)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      deploy-needed: ${{ steps.changes.outputs.deploy-needed }}
+      environment: ${{ steps.env.outputs.environment }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    
+    - name: Detect deployment changes
+      id: changes
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "deploy-needed=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          echo "deploy-needed=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          # Check if deployment-relevant files changed
+          if git diff --name-only HEAD~1 HEAD | grep -E "(src/|Dockerfile|pyproject.toml|k8s/|helm/)" > /dev/null; then
+            echo "deploy-needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy-needed=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "deploy-needed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Determine environment
+      id: env
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+        else
+          echo "environment=staging" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Determine version
+      id: version
+      run: |
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=latest" >> $GITHUB_OUTPUT
+        fi
+
+  build-and-push:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.deploy-needed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha,prefix={{branch}}-
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.production
+        target: production
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VCS_REF=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+          VERSION=${{ needs.detect-changes.outputs.version }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      if: env.AWS_REGION
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.13.0'
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name staging-cluster
+    
+    - name: Deploy to staging
+      run: |
+        helm upgrade --install nimify-staging ./helm/nimify \
+          --namespace nimify-staging \
+          --create-namespace \
+          --values ./helm/values-staging.yaml \
+          --set image.tag=${{ needs.detect-changes.outputs.version }} \
+          --set environment=staging \
+          --wait --timeout=10m
+    
+    - name: Run smoke tests
+      run: |
+        kubectl wait --for=condition=ready pod -l app=nimify -n nimify-staging --timeout=300s
+        ./scripts/smoke-test.sh staging https://nimify-staging.example.com
+    
+    - name: Notify staging deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ Staging deployment successful for version ${{ needs.detect-changes.outputs.version }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.environment == 'production'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.13.0'
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name production-cluster
+    
+    - name: Pre-deployment checks
+      run: |
+        # Verify cluster health
+        kubectl get nodes
+        kubectl get pods -n nimify-production || true
+        
+        # Check current version
+        helm list -n nimify-production
+    
+    - name: Deploy to production
+      run: |
+        helm upgrade --install nimify-production ./helm/nimify \
+          --namespace nimify-production \
+          --create-namespace \
+          --values ./helm/values-production.yaml \
+          --set image.tag=${{ needs.detect-changes.outputs.version }} \
+          --set environment=production \
+          --wait --timeout=15m
+    
+    - name: Post-deployment verification
+      run: |
+        # Wait for rollout to complete
+        kubectl rollout status deployment/nimify-production -n nimify-production --timeout=600s
+        
+        # Run comprehensive health checks
+        ./scripts/health-check.sh production https://api.nimify.example.com
+        
+        # Run integration tests
+        ./scripts/integration-test.sh production
+    
+    - name: Notify production deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "🚀 Production deployment successful for version ${{ needs.detect-changes.outputs.version }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: failure() && (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure')
+    
+    steps:
+    - name: Determine rollback environment
+      id: rollback-env
+      run: |
+        if [[ "${{ needs.deploy-production.result }}" == "failure" ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "namespace=nimify-production" >> $GITHUB_OUTPUT
+        else
+          echo "environment=staging" >> $GITHUB_OUTPUT
+          echo "namespace=nimify-staging" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Set up kubectl and Helm
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.13.0'
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Rollback deployment
+      run: |
+        helm rollback nimify-${{ steps.rollback-env.outputs.environment }} -n ${{ steps.rollback-env.outputs.namespace }}
+        kubectl rollout status deployment/nimify-${{ steps.rollback-env.outputs.environment }} -n ${{ steps.rollback-env.outputs.namespace }}
+    
+    - name: Notify rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "⚠️ Automatic rollback completed for ${{ steps.rollback-env.outputs.environment }} environment"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production, rollback]
+    if: always()
+    
+    steps:
+    - name: Clean up old container images
+      run: |
+        # Keep only the last 10 versions
+        gh api \
+          --method GET \
+          -H "Accept: application/vnd.github+json" \
+          /orgs/${{ github.repository_owner }}/packages/container/${{ github.event.repository.name }}/versions \
+          --jq '.[10:] | .[] | .id' | \
+        while read version_id; do
+          gh api \
+            --method DELETE \
+            -H "Accept: application/vnd.github+json" \
+            /orgs/${{ github.repository_owner }}/packages/container/${{ github.event.repository.name }}/versions/$version_id
+        done
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  monitoring:
+    name: Setup Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: success()
+    
+    steps:
+    - name: Configure monitoring alerts
+      run: |
+        # Set up deployment success/failure alerts
+        # Configure performance monitoring
+        # Update status dashboards
+        echo "Monitoring configuration would go here"
+    
+    - name: Update deployment metrics
+      run: |
+        # Report deployment metrics to monitoring system
+        curl -X POST "https://monitoring.example.com/api/deployments" \
+          -H "Authorization: Bearer ${{ secrets.MONITORING_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "repository": "${{ github.repository }}",
+            "version": "${{ needs.detect-changes.outputs.version }}",
+            "environment": "${{ needs.detect-changes.outputs.environment }}",
+            "status": "success",
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+          }'
