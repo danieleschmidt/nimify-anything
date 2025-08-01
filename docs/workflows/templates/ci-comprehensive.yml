@@ -1,0 +1,275 @@
+name: 🚀 Comprehensive CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: "3.10"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  code-quality:
+    name: 🔍 Code Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,security]"
+        
+    - name: Run code formatting check
+      run: black --check src/ tests/
+      
+    - name: Run linting
+      run: ruff check src/ tests/
+      
+    - name: Run type checking
+      run: mypy src/
+      
+    - name: Security scan with Bandit
+      run: bandit -r src/ -f json -o bandit-report.json
+      continue-on-error: true
+      
+    - name: Dependency vulnerability check
+      run: safety check --json --output safety-report.json
+      continue-on-error: true
+      
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  test-suite:
+    name: 🧪 Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test]"
+        
+    - name: Run unit tests
+      run: |
+        pytest tests/ \
+          --cov=src \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junit-xml=test-results.xml
+          
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: |
+          test-results.xml
+          coverage.xml
+
+  security-advanced:
+    name: 🛡️ Advanced Security Scanning
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python
+        
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+      
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      
+    - name: Run Semgrep
+      uses: semgrep/semgrep-action@v1
+      with:
+        config: auto
+        
+    - name: Detect secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+
+  build-and-test:
+    name: 🐳 Build & Integration Test
+    runs-on: ubuntu-latest
+    needs: [code-quality, test-suite]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Run container security scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.IMAGE_NAME }}:test
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  performance-test:
+    name: ⚡ Performance Testing
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install pytest-benchmark memory-profiler
+        
+    - name: Run performance tests
+      run: |
+        pytest tests/performance/ \
+          --benchmark-json=benchmark-results.json \
+          --benchmark-compare-fail=mean:10%
+          
+    - name: Memory profiling
+      run: |
+        python -m memory_profiler scripts/performance_profile.py
+        
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: |
+          benchmark-results.json
+          memory-profile.log
+
+  deployment-ready:
+    name: ✅ Deployment Readiness
+    runs-on: ubuntu-latest
+    needs: [security-advanced, performance-test]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate deployment artifacts
+      run: |
+        # Check for required deployment files
+        test -f Dockerfile
+        test -f docker-compose.yml
+        test -d monitoring/
+        
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        path: ./
+        format: spdx-json
+        
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build and push final image
+      if: github.event_name != 'pull_request'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        labels: |
+          org.opencontainers.image.title=${{ github.repository }}
+          org.opencontainers.image.description=NVIDIA NIM service
+          org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.version=${{ github.ref_name }}
+          org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+          org.opencontainers.image.revision=${{ github.sha }}
+
+  notification:
+    name: 📢 Notifications
+    runs-on: ubuntu-latest
+    needs: [deployment-ready]
+    if: always()
+    
+    steps:
+    - name: Notify Slack on success
+      if: ${{ success() }}
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ CI Pipeline completed successfully for ${{ github.ref }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        
+    - name: Notify Slack on failure
+      if: ${{ failure() }}
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ CI Pipeline failed for ${{ github.ref }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

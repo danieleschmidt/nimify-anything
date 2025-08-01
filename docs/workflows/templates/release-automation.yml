@@ -1,0 +1,398 @@
+name: 🚀 Automated Release & Deployment
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+        type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  validate-release:
+    name: 🔍 Release Validation
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          IS_PRERELEASE="${{ github.event.inputs.prerelease }}"
+        else
+          VERSION="${{ github.ref_name }}"
+          IS_PRERELEASE="false"
+          if [[ "$VERSION" == *"rc"* ]] || [[ "$VERSION" == *"beta"* ]] || [[ "$VERSION" == *"alpha"* ]]; then
+            IS_PRERELEASE="true"
+          fi
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION (prerelease: $IS_PRERELEASE)"
+        
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if [[ ! "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: v1.2.3 or v1.2.3-rc.1"
+          exit 1
+        fi
+        echo "✅ Version format is valid"
+        
+    - name: Check if version exists
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if git tag | grep -q "^${VERSION}$"; then
+          echo "❌ Version $VERSION already exists"
+          exit 1
+        fi
+        echo "✅ Version $VERSION is new"
+
+  pre-release-tests:
+    name: 🧪 Pre-Release Test Suite
+    runs-on: ubuntu-latest
+    needs: validate-release
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test,security]"
+        
+    - name: Run comprehensive test suite
+      run: |
+        pytest tests/ \
+          --cov=src \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junit-xml=test-results.xml \
+          --tb=short
+          
+    - name: Validate test coverage
+      run: |
+        COVERAGE=$(python -c "
+        import xml.etree.ElementTree as ET
+        tree = ET.parse('coverage.xml')
+        root = tree.getroot()
+        print(float(root.attrib['line-rate']) * 100)
+        ")
+        echo "Test coverage: ${COVERAGE}%"
+        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          echo "❌ Test coverage below 80% threshold"
+          exit 1
+        fi
+        echo "✅ Test coverage meets requirements"
+        
+    - name: Security scan
+      run: |
+        bandit -r src/ -f json -o bandit-report.json
+        safety check --json --output safety-report.json
+        
+    - name: Performance benchmark
+      run: |
+        pytest tests/performance/ \
+          --benchmark-json=benchmark-results.json \
+          --benchmark-compare-fail=mean:15%
+
+  build-release-artifacts:
+    name: 🏗️ Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [validate-release, pre-release-tests]
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+        
+    - name: Update version in pyproject.toml
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        VERSION_NUMBER="${VERSION#v}"  # Remove 'v' prefix
+        sed -i "s/version = \".*\"/version = \"$VERSION_NUMBER\"/" pyproject.toml
+        
+    - name: Build Python package
+      run: |
+        python -m build
+        twine check dist/*
+        
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=tag
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          
+    - name: Build and push container image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-release.outputs.version }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-artifacts-${{ needs.validate-release.outputs.version }}
+        path: |
+          dist/
+          sbom.spdx.json
+
+  security-scan-release:
+    name: 🛡️ Security Scan Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-release-artifacts]
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-release.outputs.version }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Check for critical vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-release.outputs.version }}
+        format: 'json'
+        output: 'trivy-results.json'
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+
+  create-release:
+    name: 📦 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-release-artifacts, security-scan-release]
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Download release artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: release-artifacts-${{ needs.validate-release.outputs.version }}
+        path: artifacts/
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.validate-release.outputs.version }}"
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        echo "# Release $VERSION" > release_notes.md
+        echo "" >> release_notes.md
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## 🔄 Changes Since $PREVIOUS_TAG" >> release_notes.md
+          echo "" >> release_notes.md
+          
+          # Generate changelog
+          git log --pretty=format:"- %s (%h)" ${PREVIOUS_TAG}..HEAD \
+            --grep="feat:" --grep="fix:" --grep="perf:" --grep="security:" \
+            >> release_notes.md
+          
+          echo "" >> release_notes.md
+          echo "" >> release_notes.md
+        fi
+        
+        echo "## 📊 Release Metrics" >> release_notes.md
+        echo "- **Container Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION\`" >> release_notes.md
+        echo "- **Python Package**: Available on PyPI" >> release_notes.md
+        echo "- **Security Scan**: ✅ Passed" >> release_notes.md
+        echo "- **Performance Tests**: ✅ Passed" >> release_notes.md
+        echo "" >> release_notes.md
+        
+        echo "## 🚀 Quick Start" >> release_notes.md
+        echo '```bash' >> release_notes.md
+        echo "pip install nimify-anything==${VERSION#v}" >> release_notes.md
+        echo '```' >> release_notes.md
+        echo "" >> release_notes.md
+        
+        echo "## 🐳 Container Usage" >> release_notes.md
+        echo '```bash' >> release_notes.md
+        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION" >> release_notes.md
+        echo '```' >> release_notes.md
+        
+        # Set output for GitHub release
+        RELEASE_NOTES=$(cat release_notes.md)
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ needs.validate-release.outputs.version }}
+        release_name: Release ${{ needs.validate-release.outputs.version }}
+        body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+        draft: false
+        prerelease: ${{ needs.validate-release.outputs.is_prerelease }}
+        
+    - name: Upload Python package to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: artifacts/dist/
+        asset_name: python-package.tar.gz
+        asset_content_type: application/gzip
+
+  publish-pypi:
+    name: 📦 Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: ${{ !needs.validate-release.outputs.is_prerelease }}
+    environment: pypi
+    
+    steps:
+    - name: Download release artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: release-artifacts-${{ needs.validate-release.outputs.version }}
+        path: artifacts/
+        
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages_dir: artifacts/dist/
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
+  deploy-production:
+    name: 🌐 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: ${{ !needs.validate-release.outputs.is_prerelease }}
+    environment: production
+    
+    steps:
+    - name: Deploy to Kubernetes
+      run: |
+        echo "🚀 Deploying ${{ needs.validate-release.outputs.version }} to production"
+        # Deployment logic would go here
+        # Example: kubectl set image deployment/nimify nimify=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-release.outputs.version }}
+        
+    - name: Verify deployment
+      run: |
+        echo "✅ Verifying production deployment"
+        # Health check logic would go here
+        
+    - name: Update monitoring dashboards
+      run: |
+        echo "📊 Updating monitoring dashboards for new release"
+        
+  post-release:
+    name: 📧 Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release, deploy-production]
+    if: always()
+    
+    steps:
+    - name: Send release notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          🎉 Release ${{ needs.validate-release.outputs.version }} has been deployed!
+          
+          📦 PyPI: https://pypi.org/project/nimify-anything/
+          🐳 Container: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-release.outputs.version }}
+          📋 Release Notes: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.validate-release.outputs.version }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        
+    - name: Update documentation
+      run: |
+        echo "📚 Triggering documentation update for new release"
+        # Documentation update logic would go here
