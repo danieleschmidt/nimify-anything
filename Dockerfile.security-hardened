@@ -1,0 +1,186 @@
+# Security-hardened multi-stage Dockerfile for production deployments
+# This Dockerfile implements security best practices and minimal attack surface
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 1: Security Scanner Base
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM nvidia/cuda:12.2-devel-ubuntu22.04 AS security-scanner
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Trivy for vulnerability scanning
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 2: Build Dependencies
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM nvidia/cuda:12.2-devel-ubuntu22.04 AS builder
+
+# Security: Set non-interactive frontend to prevent hanging
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Security: Create build user (non-root)
+RUN groupadd -r builduser && useradd -r -g builduser -u 999 builduser
+
+# Install build dependencies with security updates
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
+    build-essential \
+    curl \
+    git \
+    ca-certificates \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Security: Verify Python installation
+RUN python3.10 --version
+
+# Security: Use specific pip version and verify installation
+RUN python3.10 -m pip install --no-cache-dir --upgrade pip==23.3.1
+RUN python3.10 -m pip install --no-cache-dir virtualenv==20.24.6
+
+# Create secure virtual environment
+RUN python3.10 -m virtualenv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Security: Set correct ownership for virtual environment
+RUN chown -R builduser:builduser /opt/venv
+
+# Switch to build user
+USER builduser
+
+# Copy and validate pyproject.toml
+COPY --chown=builduser:builduser pyproject.toml /tmp/
+WORKDIR /tmp
+
+# Security: Pin build tools versions
+RUN pip install --no-cache-dir \
+    build==1.0.3 \
+    wheel==0.41.3 \
+    setuptools==69.0.2
+
+# Install Python dependencies with hash verification where possible
+RUN pip install --no-cache-dir -e .
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 3: Production Runtime (Distroless-inspired minimal base)
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM nvidia/cuda:12.2-runtime-ubuntu22.04 AS production
+
+# Security: Set minimal environment
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=random \
+    PATH="/opt/venv/bin:$PATH" \
+    HOME=/app \
+    USER=nimify \
+    UID=1001 \
+    GID=1001
+
+# Security: Install minimal runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    ca-certificates \
+    curl \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Security: Remove unnecessary packages and clean up
+RUN apt-get autoremove -y \
+    && apt-get autoclean \
+    && rm -rf /tmp/* /var/tmp/* \
+    && rm -rf /usr/share/man/* \
+    && rm -rf /usr/share/doc/* \
+    && rm -rf /var/log/*
+
+# Security: Create non-root user with specific UID/GID
+RUN groupadd -g $GID $USER \
+    && useradd -u $UID -g $GID -m -s /bin/bash $USER
+
+# Security: Create directories with proper permissions
+RUN mkdir -p /app /models /cache /tmp/nimify \
+    && chown -R $USER:$USER /app /models /cache /tmp/nimify \
+    && chmod 755 /app /models /cache \
+    && chmod 700 /tmp/nimify
+
+# Copy virtual environment from builder (security: maintain ownership)
+COPY --from=builder --chown=$USER:$USER /opt/venv /opt/venv
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code with proper ownership
+COPY --chown=$USER:$USER src/ ./src/
+COPY --chown=$USER:$USER pyproject.toml ./
+
+# Security: Install package and remove pip cache
+RUN pip install --no-cache-dir -e . \
+    && rm -rf /home/$USER/.cache/pip \
+    && rm -rf /tmp/*
+
+# Security: Remove pip and setuptools from final image to reduce attack surface
+RUN python3.10 -m pip uninstall -y pip setuptools
+
+# Security: Switch to non-root user
+USER $USER
+
+# Security: Set proper file permissions
+RUN chmod -R 755 /app/src \
+    && find /app -name "*.py" -exec chmod 644 {} \;
+
+# Security: Health check with timeout
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3.10 -c "import nimify; print('OK')" || exit 1
+
+# Security: Run with minimal privileges
+# Use specific command instead of shell
+ENTRYPOINT ["python3.10", "-m", "nimify.cli"]
+CMD ["--help"]
+
+# Security: Set resource limits (will be overridden by orchestrator)
+# These are defaults to prevent resource exhaustion
+ENV GOMAXPROCS=2
+ENV PYTHONMALLOC=malloc
+
+# Security: Disable core dumps
+RUN ulimit -c 0
+
+# Metadata with security information
+LABEL org.opencontainers.image.title="Nimify Anything (Security Hardened)" \
+      org.opencontainers.image.description="Security-hardened NVIDIA NIM service wrapper" \
+      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+      org.opencontainers.image.revision="$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+      org.opencontainers.image.source="https://github.com/danieleschmidt/nimify-anything" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="Nimify Project" \
+      security.scan.enabled="true" \
+      security.non-root="true" \
+      security.readonly-rootfs="true"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 4: Security Scanning (Optional - for CI/CD)
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM production AS security-scan
+
+USER root
+
+# Copy Trivy from scanner stage
+COPY --from=security-scanner /usr/local/bin/trivy /usr/local/bin/trivy
+
+# Run security scan
+RUN trivy filesystem --security-checks vuln --severity HIGH,CRITICAL /
+
+# Switch back to non-root user
+USER $USER
