@@ -1,0 +1,29 @@
+# Code Owners
+# This file defines who is responsible for code reviews in various parts of the repository
+
+# Global ownership
+* @danieleschmidt
+
+# Core engine and CLI
+/src/nimify/ @danieleschmidt
+/tests/ @danieleschmidt
+
+# Documentation
+/docs/ @danieleschmidt
+*.md @danieleschmidt
+
+# Infrastructure and deployment
+/scripts/ @danieleschmidt
+Dockerfile* @danieleschmidt
+docker-compose*.yml @danieleschmidt
+/monitoring/ @danieleschmidt
+
+# Configuration files
+pyproject.toml @danieleschmidt
+pytest.ini @danieleschmidt
+tox.ini @danieleschmidt
+Makefile @danieleschmidt
+
+# GitHub workflows and CI/CD templates
+/docs/workflows/ @danieleschmidt
+/.github/ @danieleschmidt
