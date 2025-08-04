@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage 1: Security Scanner Base
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM nvidia/cuda:12.2-devel-ubuntu22.04 AS security-scanner
+FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS security-scanner
 
 RUN apt-get update && apt-get install -y \
     curl \
@@ -17,7 +17,7 @@ RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage 2: Build Dependencies
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM nvidia/cuda:12.2-devel-ubuntu22.04 AS builder
+FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS builder
 
 # Security: Set non-interactive frontend to prevent hanging
 ENV DEBIAN_FRONTEND=noninteractive
@@ -73,7 +73,7 @@ RUN pip install --no-cache-dir -e .
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage 3: Production Runtime (Distroless-inspired minimal base)
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM nvidia/cuda:12.2-runtime-ubuntu22.04 AS production
+FROM nvidia/cuda:12.9.1-runtime-ubuntu22.04 AS production
 
 # Security: Set minimal environment
 ENV DEBIAN_FRONTEND=noninteractive \
