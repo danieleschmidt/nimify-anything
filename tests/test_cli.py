@@ -73,7 +73,7 @@ def test_create_command_missing_file(cli_runner):
     
     # Should fail with appropriate error
     assert result.exit_code != 0
-    assert "does not exist" in result.output or "No such file" in result.output
+    assert "not found" in result.output
 
 
 @pytest.mark.unit

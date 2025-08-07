@@ -1,0 +1,6 @@
+apiVersion: v2
+name: invalid name with spaces
+description: Helm chart for invalid name with spaces NIM service
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

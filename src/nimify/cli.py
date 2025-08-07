@@ -5,7 +5,7 @@ from .core import Nimifier, ModelConfig
 
 
 @click.group()
-@click.version_option()
+@click.version_option(version="0.1.0", prog_name="nimify")
 def main():
     """Nimify Anything: Wrap models into NVIDIA NIM services."""
     pass
@@ -21,11 +21,21 @@ def create(model_path: str, name: str, port: int, max_batch_size: int, dynamic_b
     """Create a NIM service from a model file."""
     import os
     from pathlib import Path
+    from .model_analyzer import ModelAnalyzer
     
     # Validate model file exists
     if not Path(model_path).exists():
         click.echo(f"Error: Model file '{model_path}' not found", err=True)
-        return
+        raise click.Abort()
+    
+    # Validate service name using proper validation
+    from .validation import ServiceNameValidator, ValidationError as ValidErr
+    
+    try:
+        ServiceNameValidator.validate_service_name(name)
+    except ValidErr as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        raise click.Abort()
     
     config = ModelConfig(
         name=name,
@@ -33,20 +43,29 @@ def create(model_path: str, name: str, port: int, max_batch_size: int, dynamic_b
         dynamic_batching=dynamic_batching
     )
     
-    # Determine input/output schemas based on file extension
-    file_ext = Path(model_path).suffix.lower()
-    if file_ext == '.onnx':
-        # Default ONNX schemas
-        input_schema = {"input": "float32[?,3,224,224]"}
-        output_schema = {"predictions": "float32[?,1000]"}
-    elif file_ext == '.trt':
-        # Default TensorRT schemas  
-        input_schema = {"images": "float32[?,3,224,224]"}
-        output_schema = {"detections": "float32[?,4]"}
-    else:
-        # Generic schema
-        input_schema = {"input": "float32[?]"}
-        output_schema = {"output": "float32[?]"}
+    click.echo(f"🔍 Analyzing model: {model_path}")
+    
+    # Auto-detect model schema
+    try:
+        model_analysis = ModelAnalyzer.analyze_model(model_path)
+        input_schema = model_analysis["inputs"]
+        output_schema = model_analysis["outputs"]
+        click.echo(f"✅ Detected {model_analysis['format']} model")
+        click.echo(f"   Inputs: {input_schema}")
+        click.echo(f"   Outputs: {output_schema}")
+    except Exception as e:
+        click.echo(f"⚠️  Model analysis failed: {e}")
+        # Fallback to file extension-based detection
+        file_ext = Path(model_path).suffix.lower()
+        if file_ext == '.onnx':
+            input_schema = {"input": "float32[?,3,224,224]"}
+            output_schema = {"predictions": "float32[?,1000]"}
+        elif file_ext == '.trt':
+            input_schema = {"images": "float32[?,3,224,224]"}
+            output_schema = {"detections": "float32[?,4]"}
+        else:
+            input_schema = {"input": "float32[?]"}
+            output_schema = {"output": "float32[?]"}
     
     nimifier = Nimifier(config)
     service = nimifier.wrap_model(
@@ -80,6 +99,8 @@ def create(model_path: str, name: str, port: int, max_batch_size: int, dynamic_b
 @click.option('--optimize/--no-optimize', default=True, help='Optimize container build')
 def build(service_name: str, tag: str, optimize: bool):
     """Build container image for a service."""
+    from .core import NIMService
+    
     click.echo(f"🐳 Building container image for '{service_name}'")
     
     # Use a dummy config for the build (in real implementation, load from saved config)
