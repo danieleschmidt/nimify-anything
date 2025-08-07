@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "invalid name with spaces.fullname" . }}
+  labels:
+    {{- include "invalid name with spaces.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "invalid name with spaces.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "invalid name with spaces.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: invalid name with spaces
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        ports:
+        - containerPort: 8000
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}

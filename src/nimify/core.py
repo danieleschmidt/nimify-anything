@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
+from pathlib import Path
 
 
 @dataclass
@@ -213,23 +214,131 @@ spec:
 """
         (templates_dir / "deployment.yaml").write_text(deployment_yaml)
     
-    def build_container(self, image_tag: str) -> None:
-        """Build container image."""
+    def build_container(self, image_tag: str, optimize: bool = True) -> None:
+        """Build optimized container image."""
         import subprocess
         from pathlib import Path
         
-        # Generate Dockerfile
-        dockerfile_content = f"""FROM nvcr.io/nvidia/tritonserver:24.06-py3
+        # Generate optimized Dockerfile
+        dockerfile_content = self._generate_optimized_dockerfile(optimize)
+        
+        dockerfile_path = Path("Dockerfile.nim")
+        dockerfile_path.write_text(dockerfile_content)
+        
+        # Build Docker image with optimization flags
+        build_args = [
+            "docker", "build", "-f", str(dockerfile_path),
+            "-t", image_tag
+        ]
+        
+        if optimize:
+            # Add BuildKit optimizations
+            build_args.extend([
+                "--build-arg", "BUILDKIT_INLINE_CACHE=1",
+                "--cache-from", image_tag,
+            ])
+        
+        build_args.append(".")
+        
+        # Build Docker image
+        try:
+            env = {"DOCKER_BUILDKIT": "1"} if optimize else {}
+            result = subprocess.run(
+                build_args,
+                check=True, 
+                capture_output=True, 
+                text=True,
+                env={**__import__('os').environ, **env}
+            )
+            print(f"Successfully built container: {image_tag}")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to build container: {e.stderr}")
+        finally:
+            # Clean up temporary Dockerfile
+            if dockerfile_path.exists():
+                dockerfile_path.unlink()
+    
+    def _generate_optimized_dockerfile(self, optimize: bool = True) -> str:
+        """Generate optimized Dockerfile with security hardening."""
+        base_stage = """# Multi-stage build for optimization
+FROM nvcr.io/nvidia/tritonserver:24.06-py3 as base
+
+# Security: Create non-root user
+RUN groupadd -r nimuser && useradd -r -g nimuser nimuser
+
+# Install system dependencies in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Install Python dependencies
-RUN pip install fastapi uvicorn prometheus-client
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    prometheus-client \
+    pydantic \
+    numpy \
+    cachetools \
+    psutil
 
+# Copy requirements and install Python packages
+COPY requirements.txt* /tmp/
+RUN if [ -f /tmp/requirements.txt ]; then \
+        pip install --no-cache-dir -r /tmp/requirements.txt; \
+    fi
+
+"""
+        
+        if optimize:
+            build_stage = """
+# Build stage for optimizations
+FROM base as builder
+
+# Copy application source
+COPY src/ /app/src/
+
+# Compile Python files for faster startup
+RUN python -m compileall /app/src/
+
+"""
+            
+            runtime_stage = f"""
+# Runtime stage - minimal and secure
+FROM nvcr.io/nvidia/tritonserver:24.06-py3-min as runtime
+
+# Copy user from base
+COPY --from=base /etc/passwd /etc/group /etc/
+
+# Copy Python packages
+COPY --from=base /usr/local/lib/python3.* /usr/local/lib/python3.*
+COPY --from=base /usr/local/bin /usr/local/bin
+
+# Copy application
+COPY --from=builder /app/ /app/
+
+# Copy model
+COPY {self.model_path} /models/{self.config.name}/
+
+"""
+        else:
+            runtime_stage = f"""
 # Copy model and application code
 COPY {self.model_path} /models/{self.config.name}/
 COPY src/ /app/src/
 
+"""
+        
+        final_stage = """
 # Set working directory
 WORKDIR /app
+
+# Security hardening
+RUN chown -R nimuser:nimuser /app /models
+
+# Switch to non-root user
+USER nimuser
 
 # Expose ports
 EXPOSE 8000 9090
@@ -238,23 +347,61 @@ EXPOSE 8000 9090
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Start command
-CMD ["uvicorn", "src.nimify.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Add labels for metadata
+LABEL maintainer="nimify" \
+      version="1.0.0" \
+      description="NVIDIA NIM microservice" \
+      org.opencontainers.image.source="https://github.com/nimify/nimify-anything"
+
+# Start command with proper signal handling
+CMD ["python", "-m", "uvicorn", "src.nimify.api:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "1", "--access-log"]
 """
         
-        dockerfile_path = Path("Dockerfile.nim")
-        dockerfile_path.write_text(dockerfile_content)
+        if optimize:
+            return base_stage + build_stage + runtime_stage + final_stage
+        else:
+            return base_stage + runtime_stage + final_stage
+    
+    def deploy_to_kubernetes(self, replicas: int = 3, namespace: str = "default") -> Path:
+        """Deploy service to Kubernetes with advanced configuration."""
+        from .deployment import DeploymentConfig, DeploymentOrchestrator
         
-        # Build Docker image
-        try:
-            result = subprocess.run([
-                "docker", "build", "-f", str(dockerfile_path), 
-                "-t", image_tag, "."
-            ], check=True, capture_output=True, text=True)
-            print(f"Successfully built container: {image_tag}")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to build container: {e.stderr}")
-        finally:
-            # Clean up temporary Dockerfile
-            if dockerfile_path.exists():
-                dockerfile_path.unlink()
+        # Create deployment configuration
+        deployment_config = DeploymentConfig(
+            service_name=self.config.name,
+            image_name=self.config.name,
+            image_tag="latest",
+            replicas=replicas,
+            namespace=namespace,
+            
+            # Resource optimization
+            cpu_request="100m",
+            cpu_limit="2000m", 
+            memory_request="512Mi",
+            memory_limit="4Gi",
+            gpu_limit=1,
+            
+            # Performance settings
+            min_replicas=2,
+            max_replicas=20,
+            target_cpu_utilization=70,
+            
+            # Security settings
+            enable_network_policies=True,
+            enable_pod_security_policy=True,
+            
+            # Environment variables
+            environment_variables={
+                "MODEL_PATH": f"/models/{self.config.name}",
+                "LOG_LEVEL": "INFO",
+                "METRICS_ENABLED": "true"
+            }
+        )
+        
+        # Generate deployment package
+        orchestrator = DeploymentOrchestrator(deployment_config)
+        output_dir = Path.cwd() / "deployments"
+        
+        return orchestrator.generate_deployment_package(output_dir)
