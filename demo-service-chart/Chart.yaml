@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-service
+description: Helm chart for demo-service NIM service
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
