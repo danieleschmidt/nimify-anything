@@ -1,0 +1,30 @@
+replicaCount: 2
+
+image:
+  repository: demo-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetGPUUtilizationPercentage: 80
+
+resources:
+  limits:
+    nvidia.com/gpu: 1
+    memory: 16Gi
+  requests:
+    nvidia.com/gpu: 1
+    memory: 8Gi
+
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
