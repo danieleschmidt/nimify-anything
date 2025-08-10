@@ -1,0 +1,38 @@
+# YAML conversion would be applied here\n# SERVICE for us-east-1\n{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "nimify-anything-us-east-1",
+    "namespace": "nim-global",
+    "labels": {
+      "app": "nimify-anything",
+      "region": "us-east-1"
+    },
+    "annotations": {
+      "service.beta.kubernetes.io/aws-load-balancer-type": "application",
+      "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "arn:aws:acm:region:account:certificate/cert-id",
+      "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "http"
+    }
+  },
+  "spec": {
+    "type": "LoadBalancer",
+    "selector": {
+      "app": "nimify-anything",
+      "region": "us-east-1"
+    },
+    "ports": [
+      {
+        "name": "http",
+        "port": 443,
+        "targetPort": 8000,
+        "protocol": "TCP"
+      },
+      {
+        "name": "metrics",
+        "port": 9090,
+        "targetPort": 9090,
+        "protocol": "TCP"
+      }
+    ]
+  }
+}

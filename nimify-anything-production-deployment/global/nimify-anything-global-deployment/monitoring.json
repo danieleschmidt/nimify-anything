@@ -1,0 +1,45 @@
+{
+  "prometheus": {
+    "global_aggregation": true,
+    "federation": {
+      "enabled": true,
+      "scrape_interval": "30s",
+      "regions": [
+        "us-east-1",
+        "us-west-2",
+        "eu-west-1",
+        "eu-central-1",
+        "ap-southeast-1",
+        "ap-northeast-1"
+      ]
+    },
+    "external_labels": {
+      "service": "nimify-anything",
+      "environment": "production",
+      "cluster": "global"
+    }
+  },
+  "grafana": {
+    "global_dashboards": true,
+    "regional_dashboards": true,
+    "alerting": {
+      "enabled": true,
+      "notification_channels": [
+        "slack",
+        "pagerduty",
+        "email"
+      ]
+    }
+  },
+  "distributed_tracing": {
+    "enabled": true,
+    "sampling_rate": 0.01,
+    "backend": "jaeger"
+  },
+  "log_aggregation": {
+    "enabled": true,
+    "backend": "elasticsearch",
+    "retention_days": 30,
+    "structured_logging": true
+  }
+}

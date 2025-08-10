@@ -1,0 +1,73 @@
+# YAML conversion would be applied here\n# HPA for us-east-1\n{
+  "apiVersion": "autoscaling/v2",
+  "kind": "HorizontalPodAutoscaler",
+  "metadata": {
+    "name": "nimify-anything-us-east-1-hpa",
+    "namespace": "nim-global"
+  },
+  "spec": {
+    "scaleTargetRef": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "name": "nimify-anything-us-east-1"
+    },
+    "minReplicas": 3,
+    "maxReplicas": 50,
+    "metrics": [
+      {
+        "type": "Resource",
+        "resource": {
+          "name": "cpu",
+          "target": {
+            "type": "Utilization",
+            "averageUtilization": 70
+          }
+        }
+      },
+      {
+        "type": "Resource",
+        "resource": {
+          "name": "memory",
+          "target": {
+            "type": "Utilization",
+            "averageUtilization": 80
+          }
+        }
+      },
+      {
+        "type": "Pods",
+        "pods": {
+          "metric": {
+            "name": "nim_request_duration_seconds_p95"
+          },
+          "target": {
+            "type": "AverageValue",
+            "averageValue": "200m"
+          }
+        }
+      }
+    ],
+    "behavior": {
+      "scaleUp": {
+        "stabilizationWindowSeconds": 60,
+        "policies": [
+          {
+            "type": "Percent",
+            "value": 100,
+            "periodSeconds": 60
+          }
+        ]
+      },
+      "scaleDown": {
+        "stabilizationWindowSeconds": 300,
+        "policies": [
+          {
+            "type": "Percent",
+            "value": 10,
+            "periodSeconds": 60
+          }
+        ]
+      }
+    }
+  }
+}

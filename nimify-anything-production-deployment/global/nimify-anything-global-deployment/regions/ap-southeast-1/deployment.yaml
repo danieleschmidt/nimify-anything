@@ -1,0 +1,187 @@
+# YAML conversion would be applied here\n# DEPLOYMENT for ap-southeast-1\n{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "nimify-anything-ap-southeast-1",
+    "namespace": "nim-global",
+    "labels": {
+      "app": "nimify-anything",
+      "region": "ap-southeast-1",
+      "compliance": "pdpa"
+    },
+    "annotations": {
+      "deployment.kubernetes.io/revision": "1",
+      "nimify.ai/region": "ap-southeast-1",
+      "nimify.ai/data-residency": "false"
+    }
+  },
+  "spec": {
+    "replicas": 2,
+    "strategy": {
+      "type": "Recreate",
+      "rollingUpdate": null
+    },
+    "selector": {
+      "matchLabels": {
+        "app": "nimify-anything",
+        "region": "ap-southeast-1"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "nimify-anything",
+          "region": "ap-southeast-1",
+          "version": "v1"
+        },
+        "annotations": {
+          "prometheus.io/scrape": "true",
+          "prometheus.io/port": "9090",
+          "prometheus.io/path": "/metrics"
+        }
+      },
+      "spec": {
+        "affinity": {
+          "podAntiAffinity": {
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 100,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchExpressions": [
+                      {
+                        "key": "app",
+                        "operator": "In",
+                        "values": [
+                          "nimify-anything"
+                        ]
+                      }
+                    ]
+                  },
+                  "topologyKey": "kubernetes.io/hostname"
+                }
+              }
+            ]
+          },
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "kubernetes.io/arch",
+                      "operator": "In",
+                      "values": [
+                        "amd64"
+                      ]
+                    },
+                    {
+                      "key": "node.kubernetes.io/instance-type",
+                      "operator": "In",
+                      "values": [
+                        "gpu-optimized"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "containers": [
+          {
+            "name": "nimify-anything",
+            "image": "nimify-anything:latest",
+            "ports": [
+              {
+                "containerPort": 8000,
+                "name": "http"
+              },
+              {
+                "containerPort": 9090,
+                "name": "metrics"
+              }
+            ],
+            "env": [
+              {
+                "name": "REGION",
+                "value": "ap-southeast-1"
+              },
+              {
+                "name": "COMPLIANCE_STANDARDS",
+                "value": "pdpa"
+              },
+              {
+                "name": "DATA_RESIDENCY",
+                "value": "False"
+              },
+              {
+                "name": "I18N_DEFAULT_LANG",
+                "value": "en"
+              },
+              {
+                "name": "I18N_SUPPORTED_LANGS",
+                "value": "en,es,fr,de,ja,zh-CN,pt,ru"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "500m",
+                "memory": "1Gi",
+                "nvidia.com/gpu": "1"
+              },
+              "limits": {
+                "cpu": "2000m",
+                "memory": "4Gi",
+                "nvidia.com/gpu": "1"
+              }
+            },
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/health",
+                "port": 8000
+              },
+              "initialDelaySeconds": 30,
+              "periodSeconds": 10,
+              "timeoutSeconds": 5,
+              "failureThreshold": 3
+            },
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/ready",
+                "port": 8000
+              },
+              "initialDelaySeconds": 5,
+              "periodSeconds": 5,
+              "timeoutSeconds": 3,
+              "failureThreshold": 2
+            },
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              }
+            }
+          }
+        ],
+        "securityContext": {
+          "fsGroup": 2000,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccountName": "nimify-anything-sa",
+        "imagePullSecrets": [
+          {
+            "name": "registry-secret"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# Development environment patch\n{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "nimify-anything"
+  },
+  "spec": {
+    "replicas": 1,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "nimify-anything",
+            "env": [
+              {
+                "name": "ENV",
+                "value": "development"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

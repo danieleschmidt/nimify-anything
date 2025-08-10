@@ -1,0 +1,17 @@
+# YAML conversion would be applied here\n# POD_DISRUPTION_BUDGET for ap-southeast-1\n{
+  "apiVersion": "policy/v1",
+  "kind": "PodDisruptionBudget",
+  "metadata": {
+    "name": "nimify-anything-ap-southeast-1-pdb",
+    "namespace": "nim-global"
+  },
+  "spec": {
+    "minAvailable": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "nimify-anything",
+        "region": "ap-southeast-1"
+      }
+    }
+  }
+}
