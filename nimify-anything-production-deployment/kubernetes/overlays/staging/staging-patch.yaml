@@ -1,0 +1,25 @@
+# Staging environment patch\n{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "nimify-anything"
+  },
+  "spec": {
+    "replicas": 3,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "nimify-anything",
+            "env": [
+              {
+                "name": "ENV",
+                "value": "staging"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

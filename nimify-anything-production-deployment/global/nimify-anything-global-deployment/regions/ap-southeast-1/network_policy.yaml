@@ -1,0 +1,69 @@
+# YAML conversion would be applied here\n# NETWORK_POLICY for ap-southeast-1\n{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "nimify-anything-ap-southeast-1-netpol",
+    "namespace": "nim-global"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "nimify-anything",
+        "region": "ap-southeast-1"
+      }
+    },
+    "policyTypes": [
+      "Ingress",
+      "Egress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "name": "ingress-nginx"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "name": "monitoring"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8000
+          },
+          {
+            "protocol": "TCP",
+            "port": 9090
+          }
+        ]
+      }
+    ],
+    "egress": [
+      {
+        "to": [],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 443
+          },
+          {
+            "protocol": "TCP",
+            "port": 53
+          },
+          {
+            "protocol": "UDP",
+            "port": 53
+          }
+        ]
+      }
+    ]
+  }
+}

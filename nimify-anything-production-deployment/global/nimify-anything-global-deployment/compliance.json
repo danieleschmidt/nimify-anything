@@ -1,0 +1,52 @@
+{
+  "gdpr": {
+    "data_protection": {
+      "encryption_at_rest": true,
+      "encryption_in_transit": true,
+      "data_anonymization": true,
+      "retention_period_days": 365,
+      "right_to_deletion": true,
+      "data_portability": true
+    },
+    "consent_management": {
+      "explicit_consent": true,
+      "consent_tracking": true,
+      "withdrawal_mechanism": true
+    },
+    "breach_notification": {
+      "enabled": true,
+      "notification_time_hours": 72,
+      "contact_email": "dpo@nimify.ai"
+    }
+  },
+  "ccpa": {
+    "data_protection": {
+      "encryption_at_rest": true,
+      "encryption_in_transit": true,
+      "data_minimization": true
+    },
+    "consumer_rights": {
+      "right_to_know": true,
+      "right_to_delete": true,
+      "right_to_opt_out": true,
+      "non_discrimination": true
+    }
+  },
+  "soc2": {
+    "security": {
+      "access_controls": true,
+      "vulnerability_management": true,
+      "incident_response": true
+    },
+    "availability": {
+      "uptime_monitoring": true,
+      "disaster_recovery": true,
+      "backup_procedures": true
+    },
+    "confidentiality": {
+      "data_classification": true,
+      "encryption": true,
+      "access_logging": true
+    }
+  }
+}

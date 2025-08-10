@@ -1,0 +1,27 @@
+{
+  "apiVersion": "policy/v1beta1",
+  "kind": "PodSecurityPolicy",
+  "metadata": {
+    "name": "nimify-anything-psp"
+  },
+  "spec": {
+    "privileged": false,
+    "allowPrivilegeEscalation": false,
+    "requiredDropCapabilities": [
+      "ALL"
+    ],
+    "volumes": [
+      "configMap",
+      "emptyDir",
+      "projected",
+      "secret"
+    ],
+    "runAsUser": {
+      "rule": "MustRunAsNonRoot"
+    },
+    "fsGroup": {
+      "rule": "RunAsAny"
+    },
+    "readOnlyRootFilesystem": false
+  }
+}

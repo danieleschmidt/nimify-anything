@@ -1,0 +1,85 @@
+{
+  "dns": {
+    "provider": "route53",
+    "zone": "nimify.ai",
+    "records": [
+      {
+        "name": "nimify-anything.api.nimify.ai",
+        "type": "A",
+        "routing_policy": "latency_based",
+        "health_check": true,
+        "regions": {
+          "us-east-1": "nimify-anything-us-east-1.elb.amazonaws.com",
+          "us-west-2": "nimify-anything-us-west-2.elb.amazonaws.com",
+          "eu-west-1": "nimify-anything-eu-west-1.elb.amazonaws.com",
+          "eu-central-1": "nimify-anything-eu-central-1.elb.amazonaws.com",
+          "ap-southeast-1": "nimify-anything-ap-southeast-1.elb.amazonaws.com",
+          "ap-northeast-1": "nimify-anything-ap-northeast-1.elb.amazonaws.com"
+        }
+      }
+    ]
+  },
+  "load_balancing": {
+    "strategy": "latency_based",
+    "health_checks": {
+      "interval": 30,
+      "timeout": 10,
+      "healthy_threshold": 2,
+      "unhealthy_threshold": 3
+    },
+    "routing_rules": [
+      {
+        "condition": "geo.country == 'US'",
+        "target_regions": [
+          "us-east-1",
+          "us-west-2"
+        ],
+        "weight_distribution": {
+          "us-east-1": 70,
+          "us-west-2": 30
+        }
+      },
+      {
+        "condition": "geo.continent == 'Europe'",
+        "target_regions": [
+          "eu-west-1",
+          "eu-central-1"
+        ],
+        "weight_distribution": {
+          "eu-west-1": 60,
+          "eu-central-1": 40
+        }
+      },
+      {
+        "condition": "geo.continent == 'Asia'",
+        "target_regions": [
+          "ap-southeast-1",
+          "ap-northeast-1"
+        ],
+        "weight_distribution": {
+          "ap-southeast-1": 50,
+          "ap-northeast-1": 50
+        }
+      }
+    ]
+  },
+  "failover": {
+    "enabled": true,
+    "detection_threshold": 3,
+    "recovery_threshold": 2,
+    "failover_chains": {
+      "us-east-1": [
+        "us-west-2",
+        "eu-west-1"
+      ],
+      "eu-west-1": [
+        "eu-central-1",
+        "us-east-1"
+      ],
+      "ap-southeast-1": [
+        "ap-northeast-1",
+        "us-west-2"
+      ]
+    }
+  }
+}

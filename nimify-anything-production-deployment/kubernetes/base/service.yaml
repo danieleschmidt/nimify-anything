@@ -1,0 +1,28 @@
+# Generated service configuration\n{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "nimify-anything",
+    "labels": {
+      "app": "nimify-anything"
+    }
+  },
+  "spec": {
+    "selector": {
+      "app": "nimify-anything"
+    },
+    "ports": [
+      {
+        "name": "http",
+        "port": 80,
+        "targetPort": 8000
+      },
+      {
+        "name": "metrics",
+        "port": 9090,
+        "targetPort": 9090
+      }
+    ],
+    "type": "ClusterIP"
+  }
+}

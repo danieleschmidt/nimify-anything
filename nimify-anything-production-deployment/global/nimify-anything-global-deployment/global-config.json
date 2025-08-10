@@ -1,0 +1,56 @@
+{
+  "service_name": "nimify-anything",
+  "deployment_strategy": "blue_green",
+  "traffic_routing": "latency_based",
+  "global_load_balancer": {
+    "type": "anycast",
+    "health_check": {
+      "path": "/health",
+      "interval_seconds": 30,
+      "timeout_seconds": 10,
+      "failure_threshold": 3
+    },
+    "failover": {
+      "enabled": true,
+      "strategy": "automatic",
+      "fallback_regions": [
+        "us-east-1",
+        "eu-west-1"
+      ]
+    }
+  },
+  "cdn": {
+    "enabled": true,
+    "provider": "cloudflare",
+    "cache_policies": {
+      "api_responses": {
+        "ttl_seconds": 300,
+        "edge_cache": true,
+        "browser_cache": false
+      },
+      "static_assets": {
+        "ttl_seconds": 86400,
+        "edge_cache": true,
+        "browser_cache": true
+      }
+    }
+  },
+  "security": {
+    "waf_enabled": true,
+    "ddos_protection": true,
+    "rate_limiting": {
+      "global_limit": 10000,
+      "per_ip_limit": 100,
+      "burst_limit": 200
+    },
+    "ssl_configuration": {
+      "minimum_tls_version": "1.2",
+      "cipher_suites": [
+        "ECDHE-RSA-AES256-GCM-SHA384",
+        "ECDHE-RSA-AES128-GCM-SHA256"
+      ],
+      "hsts_enabled": true,
+      "certificate_type": "wildcard"
+    }
+  }
+}

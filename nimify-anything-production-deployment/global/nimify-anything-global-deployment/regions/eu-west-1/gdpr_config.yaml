@@ -1,0 +1,15 @@
+# YAML conversion would be applied here\n# GDPR_CONFIG for eu-west-1\n{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "nimify-anything-gdpr-config",
+    "namespace": "nim-global"
+  },
+  "data": {
+    "data_retention_days": "365",
+    "anonymization_enabled": "true",
+    "consent_required": "true",
+    "data_export_format": "json",
+    "deletion_verification": "true"
+  }
+}
