@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile optimized for NVIDIA NIM AI/ML services
 # Build stage for dependencies and setup
-FROM nvidia/cuda:12.9.1-devel-ubuntu22.04 AS builder
+FROM nvidia/cuda:13.0.0-devel-ubuntu22.04 AS builder
 
 # Set environment variables for non-interactive installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir build wheel
 RUN cd /tmp && pip install --no-cache-dir -e .
 
 # Production stage
-FROM nvidia/cuda:12.9.1-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.0-runtime-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
