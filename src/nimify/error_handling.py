@@ -1,4 +1,4 @@
-"""Comprehensive error handling and recovery mechanisms."""
+"""Enhanced error handling and recovery for bioneuro-olfactory fusion."""
 
 import sys
 import traceback
@@ -23,8 +23,11 @@ class ErrorSeverity(Enum):
 
 
 class ErrorCategory(Enum):
-    """Error categories for classification."""
+    """Error categories for bioneuro-olfactory fusion classification."""
     VALIDATION = "validation"
+    NEURAL_DATA = "neural_data"
+    OLFACTORY_DATA = "olfactory_data"
+    FUSION_PROCESSING = "fusion_processing"
     MODEL_LOADING = "model_loading"
     INFERENCE = "inference"
     NETWORK = "network"
@@ -33,6 +36,9 @@ class ErrorCategory(Enum):
     CONFIGURATION = "configuration"
     DEPLOYMENT = "deployment"
     SECURITY = "security"
+    HARDWARE = "hardware"
+    TEMPORAL_ALIGNMENT = "temporal_alignment"
+    DATA_QUALITY = "data_quality"
     UNKNOWN = "unknown"
 
 
@@ -52,8 +58,8 @@ class ErrorContext:
     max_recovery_attempts: int = 3
 
 
-class NimifyError(Exception):
-    """Base exception for Nimify-specific errors."""
+class BioneuroError(Exception):
+    """Base exception for bioneuro-olfactory fusion specific errors."""
     
     def __init__(
         self, 
@@ -71,7 +77,7 @@ class NimifyError(Exception):
         self.timestamp = time.time()
 
 
-class ValidationError(NimifyError):
+class ValidationError(BioneuroError):
     """Input validation errors."""
     
     def __init__(self, message: str, field: str = None, value: Any = None):
@@ -89,7 +95,7 @@ class ValidationError(NimifyError):
         )
 
 
-class ModelLoadingError(NimifyError):
+class ModelLoadingError(BioneuroError):
     """Model loading and initialization errors."""
     
     def __init__(self, message: str, model_path: str, model_type: str = None):
@@ -105,7 +111,7 @@ class ModelLoadingError(NimifyError):
         )
 
 
-class InferenceError(NimifyError):
+class InferenceError(BioneuroError):
     """Model inference errors."""
     
     def __init__(self, message: str, input_shape: str = None, batch_size: int = None):
@@ -123,7 +129,7 @@ class InferenceError(NimifyError):
         )
 
 
-class ResourceError(NimifyError):
+class ResourceError(BioneuroError):
     """Resource allocation and management errors."""
     
     def __init__(self, message: str, resource_type: str, current_usage: str = None):
@@ -139,7 +145,7 @@ class ResourceError(NimifyError):
         )
 
 
-class SecurityError(NimifyError):
+class SecurityError(BioneuroError):
     """Security-related errors."""
     
     def __init__(self, message: str, threat_type: str = None, client_ip: str = None):
@@ -153,6 +159,98 @@ class SecurityError(NimifyError):
             message,
             category=ErrorCategory.SECURITY,
             severity=ErrorSeverity.CRITICAL,
+            details=details
+        )
+
+
+class NeuralDataError(BioneuroError):
+    """Neural data processing errors."""
+    
+    def __init__(self, message: str, signal_type: str = None, channels: int = None, sampling_rate: int = None):
+        details = {}
+        if signal_type:
+            details['signal_type'] = signal_type
+        if channels:
+            details['channels'] = channels
+        if sampling_rate:
+            details['sampling_rate'] = sampling_rate
+        
+        super().__init__(
+            message,
+            category=ErrorCategory.NEURAL_DATA,
+            severity=ErrorSeverity.HIGH,
+            details=details
+        )
+
+
+class OlfactoryDataError(BioneuroError):
+    """Olfactory data processing errors."""
+    
+    def __init__(self, message: str, molecule_name: str = None, concentration: float = None):
+        details = {}
+        if molecule_name:
+            details['molecule_name'] = molecule_name
+        if concentration is not None:
+            details['concentration'] = concentration
+        
+        super().__init__(
+            message,
+            category=ErrorCategory.OLFACTORY_DATA,
+            severity=ErrorSeverity.HIGH,
+            details=details
+        )
+
+
+class FusionProcessingError(BioneuroError):
+    """Multi-modal fusion processing errors."""
+    
+    def __init__(self, message: str, fusion_strategy: str = None, modalities: list = None):
+        details = {}
+        if fusion_strategy:
+            details['fusion_strategy'] = fusion_strategy
+        if modalities:
+            details['modalities'] = modalities
+        
+        super().__init__(
+            message,
+            category=ErrorCategory.FUSION_PROCESSING,
+            severity=ErrorSeverity.HIGH,
+            details=details
+        )
+
+
+class TemporalAlignmentError(BioneuroError):
+    """Temporal alignment processing errors."""
+    
+    def __init__(self, message: str, time_window: float = None, alignment_quality: float = None):
+        details = {}
+        if time_window:
+            details['time_window'] = time_window
+        if alignment_quality is not None:
+            details['alignment_quality'] = alignment_quality
+        
+        super().__init__(
+            message,
+            category=ErrorCategory.TEMPORAL_ALIGNMENT,
+            severity=ErrorSeverity.MEDIUM,
+            details=details
+        )
+
+
+class DataQualityError(BioneuroError):
+    """Data quality assessment errors."""
+    
+    def __init__(self, message: str, quality_score: float = None, quality_issues: list = None):
+        details = {}
+        if quality_score is not None:
+            details['quality_score'] = quality_score
+        if quality_issues:
+            details['quality_issues'] = quality_issues
+        
+        super().__init__(
+            message,
+            category=ErrorCategory.DATA_QUALITY,
+            severity=ErrorSeverity.MEDIUM,
             details=details
         )
 
@@ -175,7 +273,7 @@ class ErrorRecoveryManager:
     def handle_error(self, error: Exception, context: Dict[str, Any] = None) -> ErrorContext:
         """Handle an error with appropriate recovery strategies."""
         # Create error context
-        if isinstance(error, NimifyError):
+        if isinstance(error, BioneuroError):
             error_context = ErrorContext(
                 error_id=f"err_{int(time.time())}_{hash(str(error)) % 10000:04d}",
                 category=error.category,
@@ -186,7 +284,7 @@ class ErrorRecoveryManager:
                 **{k: v for k, v in (context or {}).items() if k in ['request_id', 'user_id']}
             )
         else:
-            # Handle non-Nimify exceptions
+            # Handle non-bioneuro exceptions
             error_context = ErrorContext(
                 error_id=f"err_{int(time.time())}_{hash(str(error)) % 10000:04d}",
                 category=self._classify_error(error),
