@@ -1,4 +1,4 @@
-"""Input validation and security utilities."""
+"""Input validation and security utilities for bioneuro-olfactory fusion."""
 
 import re
 import os
@@ -16,11 +16,17 @@ class ValidationError(Exception):
     pass
 
 
-class ModelFileValidator:
-    """Validates model files for security and integrity."""
+class BioneuroDataValidator:
+    """Validates bioneuro-olfactory data files for security and integrity."""
     
-    # Allowed file extensions
-    ALLOWED_EXTENSIONS = {'.onnx', '.trt', '.engine', '.plan', '.pb', '.pt', '.pth'}
+    # Allowed file extensions for neural data
+    NEURAL_DATA_EXTENSIONS = {'.edf', '.bdf', '.fif', '.mat', '.npy', '.h5', '.hdf5'}
+    
+    # Allowed file extensions for olfactory data
+    OLFACTORY_DATA_EXTENSIONS = {'.json', '.csv', '.xml', '.sdf', '.mol'}
+    
+    # Combined allowed extensions
+    ALLOWED_EXTENSIONS = NEURAL_DATA_EXTENSIONS | OLFACTORY_DATA_EXTENSIONS
     
     # Maximum file size (1GB)
     MAX_FILE_SIZE = 1024 * 1024 * 1024
@@ -75,17 +81,18 @@ class ModelFileValidator:
             raise ValidationError(f"Cannot read file for hashing: {e}")
 
 
-class ServiceNameValidator:
-    """Validates service names for compliance and security."""
+class BioneuroServiceValidator:
+    """Validates bioneuro service names for compliance and security."""
     
     # Pattern for valid service names (DNS-safe)
     VALID_NAME_PATTERN = re.compile(r'^[a-z]([a-z0-9-]*[a-z0-9])?$')
     
     # Reserved names that should not be used
     RESERVED_NAMES = {
-        'nimify', 'api', 'health', 'metrics', 'docs', 'openapi', 'swagger',
-        'admin', 'root', 'system', 'default', 'kubernetes', 'docker',
-        'localhost', 'nvidia', 'triton', 'nim'
+        'bioneuro', 'olfactory', 'neural', 'fusion', 'api', 'health', 'metrics', 
+        'docs', 'openapi', 'swagger', 'admin', 'root', 'system', 'default', 
+        'kubernetes', 'docker', 'localhost', 'nvidia', 'triton', 'nim',
+        'eeg', 'fmri', 'meg', 'ephys', 'calcium'
     }
     
     @classmethod
@@ -115,8 +122,8 @@ class ServiceNameValidator:
         return name
 
 
-class ConfigurationValidator:
-    """Validates configuration parameters."""
+class BioneuroConfigValidator:
+    """Validates bioneuro-olfactory fusion configuration parameters."""
     
     @classmethod
     def validate_port(cls, port: int) -> int:
@@ -272,3 +279,112 @@ def validate_docker_image_name(image_name: str) -> str:
         raise ValidationError(f"Invalid Docker image name format: {image_name}")
     
     return image_name
+
+
+class DataQualityValidator:
+    """Validates data quality for bioneuro-olfactory fusion."""
+    
+    @staticmethod
+    def assess_neural_data_quality(neural_data: List[List[float]], sampling_rate: int) -> Dict[str, Any]:
+        """Assess quality of neural data."""
+        import numpy as np
+        
+        data_array = np.array(neural_data)
+        
+        quality_metrics = {
+            'n_channels': data_array.shape[0],
+            'n_timepoints': data_array.shape[1],
+            'duration_seconds': data_array.shape[1] / sampling_rate,
+            'sampling_rate': sampling_rate
+        }
+        
+        # Signal quality assessment
+        signal_power = np.mean(data_array ** 2, axis=1)
+        noise_estimate = np.median(np.abs(np.diff(data_array, axis=1)), axis=1) / 0.6745
+        snr = signal_power / (noise_estimate ** 2 + 1e-10)
+        
+        quality_metrics.update({
+            'mean_snr': float(np.mean(snr)),
+            'min_snr': float(np.min(snr)),
+            'signal_power_db': float(10 * np.log10(np.mean(signal_power) + 1e-10)),
+            'noise_level_db': float(10 * np.log10(np.mean(noise_estimate ** 2) + 1e-10)),
+        })
+        
+        # Artifact detection
+        amplitude_threshold = 5 * np.std(data_array)
+        artifact_fraction = np.mean(np.abs(data_array) > amplitude_threshold)
+        
+        quality_metrics.update({
+            'artifact_fraction': float(artifact_fraction),
+            'amplitude_range': float(np.ptp(data_array)),
+            'zero_channels': int(np.sum(np.all(data_array == 0, axis=1))),
+            'saturated_channels': int(np.sum(np.any(np.abs(data_array) > 1e6, axis=1)))
+        })
+        
+        # Overall quality score (0-1)
+        quality_factors = [
+            min(1.0, quality_metrics['mean_snr'] / 10.0),  # SNR factor
+            max(0.0, 1.0 - artifact_fraction * 5),         # Artifact penalty
+            1.0 if quality_metrics['zero_channels'] == 0 else 0.5,  # Zero channel penalty
+            1.0 if quality_metrics['saturated_channels'] == 0 else 0.3  # Saturation penalty
+        ]
+        
+        quality_metrics['overall_quality'] = float(np.mean(quality_factors))
+        quality_metrics['quality_grade'] = (
+            'excellent' if quality_metrics['overall_quality'] > 0.8 else
+            'good' if quality_metrics['overall_quality'] > 0.6 else
+            'fair' if quality_metrics['overall_quality'] > 0.4 else
+            'poor'
+        )
+        
+        return quality_metrics
+    
+    @staticmethod
+    def assess_olfactory_data_quality(molecule_data: Dict[str, Any], concentration: float) -> Dict[str, Any]:
+        """Assess quality of olfactory stimulus data."""
+        
+        quality_metrics = {
+            'has_name': 'name' in molecule_data,
+            'has_molecular_weight': 'molecular_weight' in molecule_data,
+            'has_functional_groups': 'functional_groups' in molecule_data,
+            'has_odor_character': 'odor_character' in molecule_data,
+            'concentration_ppm': concentration
+        }
+        
+        # Completeness score
+        completeness_factors = [
+            quality_metrics['has_name'],
+            quality_metrics['has_molecular_weight'],
+            quality_metrics['has_functional_groups'],
+            quality_metrics['has_odor_character']
+        ]
+        
+        quality_metrics['completeness_score'] = sum(completeness_factors) / len(completeness_factors)
+        
+        # Concentration validity
+        quality_metrics['concentration_valid'] = 0.001 <= concentration <= 100.0
+        quality_metrics['concentration_realistic'] = 0.01 <= concentration <= 10.0
+        
+        # Molecular weight validation
+        if 'molecular_weight' in molecule_data:
+            mw = molecule_data['molecular_weight']
+            quality_metrics['mw_realistic'] = 50 <= mw <= 500  # Realistic range for odorants
+        else:
+            quality_metrics['mw_realistic'] = False
+        
+        # Overall quality
+        quality_factors = [
+            quality_metrics['completeness_score'],
+            1.0 if quality_metrics['concentration_valid'] else 0.0,
+            1.0 if quality_metrics['mw_realistic'] else 0.5
+        ]
+        
+        quality_metrics['overall_quality'] = sum(quality_factors) / len(quality_factors)
+        quality_metrics['quality_grade'] = (
+            'excellent' if quality_metrics['overall_quality'] > 0.8 else
+            'good' if quality_metrics['overall_quality'] > 0.6 else
+            'fair' if quality_metrics['overall_quality'] > 0.4 else
+            'poor'
+        )
+        
+        return quality_metrics
