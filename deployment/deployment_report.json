@@ -1,0 +1,58 @@
+{
+  "deployment_info": {
+    "service_name": "nimify-service",
+    "version": "1.0.0",
+    "environment": "production",
+    "timestamp": 1755130603.6253088,
+    "total_duration": 0.00032401084899902344
+  },
+  "stages": [
+    {
+      "stage": "preparation",
+      "status": "failed",
+      "message": "Missing required tools: kubectl (Kubernetes CLI), helm (Helm package manager)",
+      "duration": 0.00032401084899902344,
+      "artifacts": [],
+      "metrics": {}
+    }
+  ],
+  "summary": {
+    "total_stages": 1,
+    "successful_stages": 0,
+    "failed_stages": 1,
+    "overall_status": "FAILED"
+  },
+  "artifacts": [],
+  "config": {
+    "service_name": "nimify-service",
+    "version": "1.0.0",
+    "environment": "production",
+    "registry": "ghcr.io",
+    "namespace": "nimify",
+    "base_image": "nvidia/tritonserver:24.06-py3",
+    "k8s_namespace": "nimify-prod",
+    "replica_count": 3,
+    "cpu_request": "500m",
+    "cpu_limit": "2000m",
+    "memory_request": "1Gi",
+    "memory_limit": "4Gi",
+    "gpu_limit": 1,
+    "enable_monitoring": true,
+    "enable_tracing": true,
+    "log_level": "INFO",
+    "enable_network_policies": true,
+    "enable_pod_security_policy": true,
+    "scan_for_vulnerabilities": true,
+    "strategy": "rolling",
+    "max_unavailable": "25%",
+    "max_surge": "25%",
+    "health_check_path": "/health",
+    "readiness_probe_delay": 30,
+    "liveness_probe_delay": 60,
+    "regions": [
+      "us-west-2",
+      "eu-west-1",
+      "ap-southeast-1"
+    ]
+  }
+}
