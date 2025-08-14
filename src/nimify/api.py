@@ -33,9 +33,16 @@ setup_logging("nim-service", log_level="INFO", enable_audit=True)
 logger = logging.getLogger(__name__)
 
 
-class PredictionRequest(RequestValidator):
+class PredictionRequest(BaseModel):
     """Request model for predictions with validation."""
-    pass
+    input: List[List[float]] = Field(..., description="Input data for inference", min_items=1, max_items=64)
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "input": [[1.0, 2.0, 3.0]]
+            }
+        }
 
 
 class PredictionResponse(BaseModel):
@@ -190,7 +197,8 @@ async def lifespan(app: FastAPI):
     
     # Startup
     service_start_time = time.time()
-    model_path = "/models/model.onnx"  # Default path, should be configurable
+    import os
+    model_path = os.getenv("MODEL_PATH", "/models/model.onnx")
     model_loader = ModelLoader(model_path)
     
     try:
@@ -266,10 +274,37 @@ async def predict(request: PredictionRequest, req: Request, request_id: str = De
             
             # Additional runtime validation
             if len(request.input) > 64:  # Max batch size
-                raise ValidationError("Batch size too large (max: 64)")
+                raise HTTPException(status_code=422, detail="Batch size too large (max: 64)")
             
-            predictions = await model_loader.predict(request.input)
-            inference_time_ms = (time.time() - start_time) * 1000
+            if not all(isinstance(row, list) and all(isinstance(val, (int, float)) for val in row) for row in request.input):
+                raise HTTPException(status_code=422, detail="Invalid input format: expected list of lists of numbers")
+            
+            # Run inference with circuit breaker protection
+            try:
+                predictions = await model_loader.predict(request.input)
+                inference_time_ms = (time.time() - start_time) * 1000
+            
+            except CircuitBreakerException as e:
+                ERROR_COUNT.labels(error_type="circuit_breaker_open", endpoint="/v1/predict").inc()
+                REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="circuit_open").inc()
+                
+                log_security_event(
+                    event_type="circuit_breaker_open",
+                    message=f"Circuit breaker open for inference: {str(e)}",
+                    ip_address=client_ip,
+                    request_id=request_id
+                )
+                
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": "Service temporarily unavailable (circuit breaker open)",
+                        "request_id": request_id,
+                        "timestamp": time.time(),
+                        "retry_after": 30  # Suggest retry after 30 seconds
+                    },
+                    headers={"Retry-After": "30"}
+                )
         
         # Log performance metrics
         log_performance_metric("inference_time", inference_time_ms, "ms")

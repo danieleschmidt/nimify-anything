@@ -1,218 +1,235 @@
 {
-  "overall_passed": false,
-  "overall_score": 0.78,
-  "gates_passed": 2,
-  "total_gates": 5,
-  "individual_results": {
-    "Code Quality": {
-      "name": "Code Quality",
-      "passed": false,
-      "score": 0.6,
-      "details": {
-        "structure": {
-          "total_modules": 16,
-          "required_modules_present": 10,
-          "large_modules": 0
-        },
-        "documentation": {
-          "files_checked": 15,
-          "documentation_score": 0.7000000000000003,
-          "threshold": 0.6
-        },
-        "naming": {
-          "violations_count": 13,
-          "threshold": 20
-        },
-        "complexity": {
-          "high_complexity_functions": 11,
-          "threshold": 10
-        },
-        "imports": {
-          "files_with_import_issues": 10,
-          "threshold": 5
-        }
-      },
-      "errors": [],
-      "warnings": [
-        "core.py: Class 'from' should be PascalCase",
-        "core.py: Class 'class' should be PascalCase",
-        "core.py: Class 'for' should be PascalCase",
-        "deployment.py: Class 'class' should be PascalCase",
-        "performance.py: Class 'from' should be PascalCase",
-        "performance.py: Class 'class' should be PascalCase",
-        "error_handling.py: Class 'class' should be PascalCase",
-        "optimization.py: Class 'class' should be PascalCase",
-        "optimization.py: Class 'class' should be PascalCase",
-        "monitoring.py: Class 'class' should be PascalCase",
-        "... and 3 more naming violations",
-        "performance.py:__init__ (complexity: 19)",
-        "security.py:__init__ (complexity: 18)",
-        "error_handling.py:__init__ (complexity: 46)",
-        "optimization.py:__init__ (complexity: 17)",
-        "optimization.py:__init__ (complexity: 20)",
-        "... and 6 more complex functions",
-        "api.py: Potentially unused imports: ['asyncio', 'Any', 'Dict', 'onnxruntime as ort', 'numpy as np']",
-        "deployment.py: Potentially unused imports: ['List']",
-        "model_analyzer.py: Potentially unused imports: ['List', 'Tuple', 'Optional', 'Union', 'json']",
-        "performance.py: Potentially unused imports: ['defaultdict', 'Dict', 'ThreadPoolExecutor', 'numpy as np', 'pickle']",
-        "security.py: Potentially unused imports: ['hmac', 'Optional']",
-        "validation.py: Potentially unused imports: ['Optional', 'Tuple']",
-        "optimization.py: Potentially unused imports: ['Callable', 'Tuple', 'hashlib', 'pickle', 'json']",
-        "robust_api.py: Potentially unused imports: ['Optional', 'RequestValidator']",
-        "monitoring.py: Potentially unused imports: ['asdict', 'Optional']",
-        "global_deployment.py: Potentially unused imports: ['Tuple']"
-      ]
-    },
-    "Security": {
-      "name": "Security",
-      "passed": false,
-      "score": 0.8,
-      "details": {
-        "secrets": {
-          "violations_found": 3,
-          "files_scanned": 16
-        },
-        "dangerous_functions": {
-          "violations_found": 2,
-          "threshold": 5
-        },
-        "input_validation": {
-          "validation_functions_found": 2,
-          "security_classes_found": 3,
-          "total_required": 6
-        },
-        "authentication": {
-          "auth_features_found": 5,
-          "total_features": 5
-        },
-        "encryption": {
-          "security_indicators_found": 3,
-          "total_indicators": 6
-        }
-      },
-      "errors": [
-        "deployment.py: potential secret (base64) found",
-        "global_deployment.py: potential secret (base64) found",
-        "global_deployment.py: potential secret (base64) found"
-      ],
-      "warnings": [
-        "core.py: __import__() usage",
-        "simple_cli.py: __import__() usage"
-      ]
-    },
-    "Performance": {
-      "name": "Performance",
-      "passed": true,
-      "score": 1.0,
-      "details": {
-        "performance_module": {
-          "classes_found": 4,
-          "total_classes": 4
-        },
-        "optimization": {
-          "features_found": 5,
-          "total_features": 5
-        },
-        "caching": {
-          "cache_features_found": 5,
-          "total_features": 5
-        },
-        "monitoring": {
-          "monitoring_features_found": 4,
-          "total_features": 4
-        },
-        "benchmarks": {
-          "import_time_seconds": 0.03313159942626953,
-          "creation_time_seconds": 1.0013580322265625e-05,
-          "import_passed": true,
-          "creation_passed": true
-        }
-      },
-      "errors": [],
-      "warnings": []
-    },
-    "Tests": {
-      "name": "Tests",
-      "passed": false,
-      "score": 0.5,
-      "details": {
-        "test_structure": {
-          "test_files_found": 7,
-          "expected_test_files": 15,
-          "missing_test_files": 9
-        },
-        "test_coverage": {
-          "total_functions": 151,
-          "test_functions": 118,
-          "coverage_estimate": 0.7814569536423841,
-          "threshold": 0.3
-        },
-        "test_execution": {
-          "total_test_files": 3,
-          "passed_test_files": 1,
-          "test_results": [
-            {
-              "file": "simple_test.py",
-              "returncode": 1,
-              "passed": false
-            },
-            {
-              "file": "test_robust_simple.py",
-              "returncode": 1,
-              "passed": false
-            },
-            {
-              "file": "test_optimized_system.py",
-              "returncode": 0,
-              "passed": true
-            }
-          ]
-        },
-        "test_quality": {
-          "test_files_checked": 3,
-          "quality_score": 3.5,
-          "threshold": 2.0
-        }
-      },
-      "errors": [],
-      "warnings": [
-        "Missing test files: ['test_deployment.py', 'test_logging_config.py', 'test_performance.py', 'test_error_handling.py', 'test_simple_cli.py']"
-      ]
-    },
-    "Deployment": {
-      "name": "Deployment",
-      "passed": true,
-      "score": 1.0,
-      "details": {
-        "containerization": {
-          "docker_files_found": 3,
-          "total_docker_files": 3,
-          "dockerfile_practices": 3,
-          "total_practices": 4
-        },
-        "kubernetes": {
-          "k8s_features_found": 5,
-          "total_k8s_features": 5,
-          "helm_features_found": 3,
-          "total_helm_features": 4
-        },
-        "global_deployment": {
-          "global_features_found": 6,
-          "total_features": 6
-        },
-        "configuration": {
-          "config_files_found": 3,
-          "total_config_files": 3,
-          "config_features_found": 3
-        },
-        "monitoring_integration": {
-          "monitoring_indicators_found": 8,
-          "threshold": 5
-        }
-      },
-      "errors": [],
-      "warnings": []
-    }
+  "summary": {
+    "overall_status": "FAILED",
+    "pass_rate": 58.333333333333336,
+    "total_checks": 4,
+    "passed_checks": 1,
+    "total_metrics": 12,
+    "passed_metrics": 7,
+    "total_errors": 0,
+    "total_warnings": 63,
+    "execution_time": 0.9723997116088867,
+    "timestamp": 1755130437.135906
   },
-  "timestamp": 1754687066.7397804
+  "quality_gates": [
+    {
+      "gate_name": "Code Structure",
+      "passed": false,
+      "metrics": [
+        {
+          "name": "Total Python Files",
+          "value": 26,
+          "threshold": 5,
+          "passed": true,
+          "description": "Number of Python source files",
+          "severity": "medium"
+        },
+        {
+          "name": "Average File Size",
+          "value": 19483.653846153848,
+          "threshold": 5000,
+          "passed": false,
+          "description": "Average file size in bytes",
+          "severity": "medium"
+        },
+        {
+          "name": "Max File Size",
+          "value": 36033,
+          "threshold": 20000,
+          "passed": false,
+          "description": "Maximum file size in bytes",
+          "severity": "medium"
+        },
+        {
+          "name": "Import Violations",
+          "value": 0,
+          "threshold": 5,
+          "passed": true,
+          "description": "Number of problematic imports",
+          "severity": "high"
+        },
+        {
+          "name": "Code Smells",
+          "value": 32,
+          "threshold": 10,
+          "passed": false,
+          "description": "Number of detected code smells",
+          "severity": "medium"
+        }
+      ],
+      "execution_time": 0.5095038414001465,
+      "errors": [],
+      "warnings": [
+        "Large file detected: src/nimify/api.py (13653 bytes)",
+        "Large file detected: src/nimify/core.py (14780 bytes)",
+        "Large file detected: src/nimify/deployment.py (26816 bytes)",
+        "Large file detected: src/nimify/error_handling.py (20100 bytes)",
+        "Large file detected: src/nimify/fusion_engine.py (36033 bytes)",
+        "Large file detected: src/nimify/global_deployment.py (34179 bytes)",
+        "Large file detected: src/nimify/model_analyzer.py (15178 bytes)",
+        "Large file detected: src/nimify/monitoring.py (20666 bytes)",
+        "Large file detected: src/nimify/neural_processor.py (17871 bytes)",
+        "Large file detected: src/nimify/olfactory_analyzer.py (32249 bytes)",
+        "Large file detected: src/nimify/optimization.py (32426 bytes)",
+        "Large file detected: src/nimify/performance.py (14561 bytes)",
+        "Large file detected: src/nimify/performance_optimizer.py (30191 bytes)",
+        "Large file detected: src/nimify/robust_api.py (21376 bytes)",
+        "Large file detected: src/nimify/security.py (12747 bytes)",
+        "Large file detected: src/nimify/validation.py (14336 bytes)",
+        "Large file detected: src/nimify/circuit_breaker.py (13641 bytes)",
+        "Large file detected: src/nimify/admin_api.py (20045 bytes)",
+        "Large file detected: src/nimify/advanced_cli.py (15158 bytes)",
+        "Large file detected: src/nimify/rate_limiter.py (20756 bytes)",
+        "Large file detected: src/nimify/auto_scaler.py (28472 bytes)",
+        "Large file detected: src/nimify/caching_system.py (31045 bytes)",
+        "Long line in src/nimify/api.py:279 (125 chars)",
+        "Long line in src/nimify/deployment.py:711 (122 chars)",
+        "Deep nesting in function deploy_to_kubernetes in src/nimify/deployment.py (depth: 5)",
+        "Deep nesting in function _classify_error in src/nimify/error_handling.py (depth: 9)",
+        "Long line in src/nimify/fusion_engine.py:66 (126 chars)",
+        "Long line in src/nimify/fusion_engine.py:355 (138 chars)",
+        "Long line in src/nimify/fusion_engine.py:803 (122 chars)",
+        "Long line in src/nimify/fusion_engine.py:844 (138 chars)",
+        "Deep nesting in function _apply_fusion_strategy in src/nimify/fusion_engine.py (depth: 5)",
+        "Long line in src/nimify/global_deployment.py:337 (132 chars)",
+        "Long line in src/nimify/global_deployment.py:340 (121 chars)",
+        "Long line in src/nimify/global_deployment.py:411 (126 chars)",
+        "TODO/FIXME comment in src/nimify/global_deployment.py:233",
+        "Deep nesting in function analyze_onnx_model in src/nimify/model_analyzer.py (depth: 5)",
+        "Deep nesting in function analyze_tensorflow_model in src/nimify/model_analyzer.py (depth: 5)",
+        "Long line in src/nimify/olfactory_analyzer.py:370 (126 chars)",
+        "Long line in src/nimify/olfactory_analyzer.py:641 (121 chars)",
+        "Deep nesting in function _classify_molecule_type in src/nimify/olfactory_analyzer.py (depth: 6)",
+        "Deep nesting in function _aggregate_neural_responses in src/nimify/olfactory_analyzer.py (depth: 5)",
+        "Long line in src/nimify/optimization.py:712 (124 chars)",
+        "Long line in src/nimify/robust_api.py:466 (134 chars)",
+        "Long line in src/nimify/validation.py:235 (134 chars)",
+        "Deep nesting in function get_recommendations in src/nimify/admin_api.py (depth: 6)",
+        "Deep nesting in function analyze in src/nimify/advanced_cli.py (depth: 6)",
+        "Long line in src/nimify/rate_limiter.py:136 (128 chars)",
+        "Long line in src/nimify/rate_limiter.py:268 (137 chars)",
+        "Long line in src/nimify/auto_scaler.py:678 (122 chars)",
+        "Long line in src/nimify/auto_scaler.py:684 (123 chars)",
+        "Long line in src/nimify/caching_system.py:824 (124 chars)",
+        "Long line in src/nimify/caching_system.py:900 (123 chars)",
+        "Long line in src/nimify/caching_system.py:906 (127 chars)",
+        "Long line in src/nimify/caching_system.py:908 (124 chars)"
+      ],
+      "recommendations": [
+        "Consider breaking large files into smaller modules"
+      ]
+    },
+    {
+      "gate_name": "Documentation",
+      "passed": true,
+      "metrics": [
+        {
+          "name": "Function Documentation Coverage",
+          "value": 81.42589118198875,
+          "threshold": 70.0,
+          "passed": true,
+          "description": "Percentage of functions with docstrings",
+          "severity": "medium"
+        },
+        {
+          "name": "Class Documentation Coverage",
+          "value": 98.46153846153847,
+          "threshold": 80.0,
+          "passed": true,
+          "description": "Percentage of classes with docstrings",
+          "severity": "medium"
+        },
+        {
+          "name": "README Exists",
+          "value": 1.0,
+          "threshold": 1.0,
+          "passed": true,
+          "description": "Project has a README file",
+          "severity": "high"
+        }
+      ],
+      "execution_time": 0.1958141326904297,
+      "errors": [],
+      "warnings": [],
+      "recommendations": []
+    },
+    {
+      "gate_name": "Security",
+      "passed": false,
+      "metrics": [
+        {
+          "name": "Security Issues",
+          "value": 9,
+          "threshold": 0,
+          "passed": false,
+          "description": "Number of potential security issues",
+          "severity": "critical"
+        },
+        {
+          "name": "High-Risk Patterns",
+          "value": 0,
+          "threshold": 0,
+          "passed": true,
+          "description": "Number of high-risk security patterns",
+          "severity": "critical"
+        }
+      ],
+      "execution_time": 0.07979083061218262,
+      "errors": [],
+      "warnings": [
+        "Use of random for security (use secrets module) in src/nimify/optimization.py:741",
+        "Use of MD5 hash (weak) in src/nimify/performance.py:140",
+        "Use of MD5 hash (weak) in src/nimify/performance_optimizer.py:683",
+        "Hardcoded password reference in src/nimify/security.py:326",
+        "Hardcoded secret reference in src/nimify/security.py:326",
+        "Use of pickle.load/loads in src/nimify/caching_system.py:435",
+        "Use of pickle.load/loads in src/nimify/caching_system.py:438",
+        "Use of pickle.load/loads in src/nimify/caching_system.py:600",
+        "Use of pickle.load/loads in src/nimify/caching_system.py:680"
+      ],
+      "recommendations": [
+        "Review and remediate security issues before production deployment",
+        "Consider using static security analysis tools like bandit"
+      ]
+    },
+    {
+      "gate_name": "Dependencies",
+      "passed": false,
+      "metrics": [
+        {
+          "name": "Dependency File Exists",
+          "value": 1.0,
+          "threshold": 1.0,
+          "passed": true,
+          "description": "Project has dependency specification",
+          "severity": "high"
+        },
+        {
+          "name": "Third-party Dependencies",
+          "value": 40,
+          "threshold": 20,
+          "passed": false,
+          "description": "Number of third-party dependencies",
+          "severity": "medium"
+        }
+      ],
+      "execution_time": 0.18585824966430664,
+      "errors": [],
+      "warnings": [],
+      "recommendations": [
+        "Consider reducing the number of dependencies"
+      ]
+    }
+  ],
+  "recommendations": [
+    "Consider using static security analysis tools like bandit",
+    "Consider breaking large files into smaller modules",
+    "Review and remediate security issues before production deployment",
+    "Consider reducing the number of dependencies"
+  ],
+  "metadata": {
+    "source_directory": "src",
+    "generated_at": "2025-08-14 00:13:57",
+    "generator_version": "1.0.0"
+  }
 }
