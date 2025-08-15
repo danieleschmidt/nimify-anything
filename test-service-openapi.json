@@ -20,7 +20,8 @@
                     "items": {
                       "type": "number",
                       "format": "float"
-                    }
+                    },
+                    "description": "Tensor with shape float32[?,3,224,224]"
                   }
                 },
                 "required": [
@@ -43,7 +44,8 @@
                       "items": {
                         "type": "number",
                         "format": "float"
-                      }
+                      },
+                      "description": "Tensor with shape float32[?,1000]"
                     }
                   },
                   "required": [

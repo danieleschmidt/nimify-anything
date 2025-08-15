@@ -1,153 +1,90 @@
-"""Core classes for Bioneuro-Olfactory Fusion system."""
+"""Core classes for NVIDIA NIM microservice creation."""
 
-import numpy as np
+import json
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from pathlib import Path
-from enum import Enum
-
-
-class NeuralSignalType(Enum):
-    """Types of neural signals that can be processed."""
-    EEG = "electroencephalogram"
-    fMRI = "functional_magnetic_resonance"
-    MEG = "magnetoencephalography"
-    EPHYS = "electrophysiology"
-    CALCIUM = "calcium_imaging"
-
-
-class OlfactoryMoleculeType(Enum):
-    """Categories of olfactory molecules."""
-    ALDEHYDE = "aldehyde"
-    ESTER = "ester"
-    KETONE = "ketone"
-    ALCOHOL = "alcohol"
-    TERPENE = "terpene"
-    AROMATIC = "aromatic"
 
 
 @dataclass
-class NeuralConfig:
-    """Configuration for neural signal processing."""
+class ModelConfig:
+    """Configuration for model service creation."""
     
-    signal_type: NeuralSignalType
-    sampling_rate: int = 1000  # Hz
-    channels: int = 64
-    time_window: float = 2.0  # seconds
-    preprocessing_filters: List[str] = None
-    artifact_removal: bool = True
-    
-    def __post_init__(self):
-        if self.preprocessing_filters is None:
-            self.preprocessing_filters = ["bandpass", "notch", "baseline"]
-
-
-@dataclass
-class OlfactoryConfig:
-    """Configuration for olfactory stimulus analysis."""
-    
-    molecule_types: List[OlfactoryMoleculeType]
-    concentration_range: Tuple[float, float] = (0.001, 10.0)  # ppm
-    molecular_descriptors: List[str] = None
-    stimulus_duration: float = 3.0  # seconds
-    inter_stimulus_interval: float = 10.0  # seconds
+    name: str
+    max_batch_size: int = 32
+    dynamic_batching: bool = True
+    preferred_batch_sizes: List[int] = None
+    max_queue_delay_microseconds: int = 100
+    gpu_memory: str = "auto"
     
     def __post_init__(self):
-        if self.molecular_descriptors is None:
-            self.molecular_descriptors = [
-                "molecular_weight", "vapor_pressure", "polarity",
-                "functional_groups", "carbon_chain_length"
-            ]
+        if self.preferred_batch_sizes is None:
+            self.preferred_batch_sizes = [1, 4, 8, 16, self.max_batch_size]
 
 
-class BioneuroFusion:
-    """Main class for bioneuro-olfactory fusion analysis."""
+class Nimifier:
+    """Main class for converting models to NIM services."""
     
-    def __init__(self, neural_config: NeuralConfig, olfactory_config: OlfactoryConfig):
-        self.neural_config = neural_config
-        self.olfactory_config = olfactory_config
-        self.fusion_models = {}
+    def __init__(self, config: ModelConfig):
+        self.config = config
     
-    def process_neural_data(
-        self, 
-        neural_data: np.ndarray,
-        timestamps: np.ndarray = None
-    ) -> Dict[str, Any]:
-        """Process neural signal data."""
-        from .neural_processor import NeuralSignalProcessor
-        
-        processor = NeuralSignalProcessor(self.neural_config)
-        return processor.process(neural_data, timestamps)
-    
-    def analyze_olfactory_stimulus(
+    def wrap_model(
         self,
-        molecule_data: Dict[str, Any],
-        concentration: float
-    ) -> Dict[str, Any]:
-        """Analyze olfactory stimulus properties."""
-        from .olfactory_analyzer import OlfactoryAnalyzer
-        
-        analyzer = OlfactoryAnalyzer(self.olfactory_config)
-        return analyzer.analyze(molecule_data, concentration)
-    
-    def fuse_modalities(
-        self,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Fuse neural and olfactory data modalities."""
-        from .fusion_engine import MultiModalFusionEngine
-        
-        fusion_engine = MultiModalFusionEngine()
-        return fusion_engine.fuse(neural_features, olfactory_features)
+        model_path: str,
+        input_schema: Dict[str, str],
+        output_schema: Dict[str, str]
+    ) -> 'NIMService':
+        """Wrap a model file into a NIM service."""
+        return NIMService(
+            config=self.config,
+            model_path=model_path,
+            input_schema=input_schema,
+            output_schema=output_schema
+        )
 
 
-class BioneuroService:
-    """Represents a bioneuro-olfactory fusion service instance."""
+class NIMService:
+    """Represents a NIM service instance."""
     
     def __init__(
-        self, 
-        neural_config: NeuralConfig,
-        olfactory_config: OlfactoryConfig,
-        fusion_model_path: Optional[str] = None
+        self,
+        config: ModelConfig,
+        model_path: str,
+        input_schema: Dict[str, str],
+        output_schema: Dict[str, str]
     ):
-        self.neural_config = neural_config
-        self.olfactory_config = olfactory_config
-        self.fusion_model_path = fusion_model_path
-        self.fusion_engine = BioneuroFusion(neural_config, olfactory_config)
+        self.config = config
+        self.model_path = model_path
+        self.input_schema = input_schema
+        self.output_schema = output_schema
     
-    def _generate_bioneuro_schema(self) -> Dict[str, Any]:
-        """Generate OpenAPI schema for bioneuro-olfactory fusion."""
-        neural_schema = {
-            "neural_data": {
-                "type": "array",
-                "items": {"type": "number"},
-                "description": f"{self.neural_config.signal_type.value} signal data"
-            },
-            "timestamps": {
-                "type": "array", 
-                "items": {"type": "number"},
-                "description": "Temporal timestamps for neural data"
-            }
-        }
+    def _schema_to_openapi(self, schema: Dict[str, str]) -> Dict[str, Any]:
+        """Convert internal schema format to OpenAPI schema."""
+        properties = {}
         
-        olfactory_schema = {
-            "molecule_data": {
-                "type": "object",
-                "description": "Chemical properties of olfactory stimulus"
-            },
-            "concentration": {
-                "type": "number",
-                "minimum": self.olfactory_config.concentration_range[0],
-                "maximum": self.olfactory_config.concentration_range[1],
-                "description": "Stimulus concentration in ppm"
-            }
-        }
+        for field_name, field_type in schema.items():
+            if "float32" in field_type:
+                properties[field_name] = {
+                    "type": "array",
+                    "items": {"type": "number", "format": "float"},
+                    "description": f"Tensor with shape {field_type}"
+                }
+            elif "int" in field_type:
+                properties[field_name] = {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": f"Tensor with shape {field_type}"
+                }
+            else:
+                properties[field_name] = {
+                    "type": "array",
+                    "description": f"Tensor with shape {field_type}"
+                }
         
         return {
             "type": "object",
-            "properties": {**neural_schema, **olfactory_schema},
-            "required": ["neural_data", "molecule_data", "concentration"]
+            "properties": properties,
+            "required": list(schema.keys())
         }
     
     def generate_openapi(self, output_path: str) -> None:

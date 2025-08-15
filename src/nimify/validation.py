@@ -4,7 +4,7 @@ import re
 import os
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import logging
 from pydantic import BaseModel, Field, validator
 
@@ -81,7 +81,7 @@ class BioneuroDataValidator:
             raise ValidationError(f"Cannot read file for hashing: {e}")
 
 
-class BioneuroServiceValidator:
+class ServiceNameValidator:
     """Validates bioneuro service names for compliance and security."""
     
     # Pattern for valid service names (DNS-safe)
