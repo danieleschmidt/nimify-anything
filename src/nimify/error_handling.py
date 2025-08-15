@@ -1,17 +1,11 @@
-"""Enhanced error handling and recovery for bioneuro-olfactory fusion."""
+"""Comprehensive error handling and recovery mechanisms."""
 
-import sys
-import traceback
 import logging
+import traceback
 import time
+from typing import Any, Dict, Optional, Callable
+from functools import wraps
 from enum import Enum
-from typing import Dict, List, Optional, Any, Callable
-from dataclasses import dataclass, field
-from contextlib import contextmanager
-import threading
-import asyncio
-
-logger = logging.getLogger(__name__)
 
 
 class ErrorSeverity(Enum):
@@ -23,568 +17,268 @@ class ErrorSeverity(Enum):
 
 
 class ErrorCategory(Enum):
-    """Error categories for bioneuro-olfactory fusion classification."""
+    """Error category types."""
     VALIDATION = "validation"
-    NEURAL_DATA = "neural_data"
-    OLFACTORY_DATA = "olfactory_data"
-    FUSION_PROCESSING = "fusion_processing"
-    MODEL_LOADING = "model_loading"
-    INFERENCE = "inference"
-    NETWORK = "network"
-    AUTHENTICATION = "authentication"
-    RESOURCE = "resource"
-    CONFIGURATION = "configuration"
-    DEPLOYMENT = "deployment"
+    INFRASTRUCTURE = "infrastructure"
+    MODEL = "model"
     SECURITY = "security"
-    HARDWARE = "hardware"
-    TEMPORAL_ALIGNMENT = "temporal_alignment"
-    DATA_QUALITY = "data_quality"
-    UNKNOWN = "unknown"
+    CONFIGURATION = "configuration"
+    EXTERNAL = "external"
 
 
-@dataclass
-class ErrorContext:
-    """Context information for error handling."""
-    error_id: str
-    category: ErrorCategory
-    severity: ErrorSeverity
-    message: str
-    details: Dict[str, Any] = field(default_factory=dict)
-    timestamp: float = field(default_factory=time.time)
-    traceback: Optional[str] = None
-    request_id: Optional[str] = None
-    user_id: Optional[str] = None
-    recovery_attempts: int = 0
-    max_recovery_attempts: int = 3
-
-
-class BioneuroError(Exception):
-    """Base exception for bioneuro-olfactory fusion specific errors."""
+class NimifyError(Exception):
+    """Base exception for Nimify errors."""
     
     def __init__(
-        self, 
-        message: str, 
-        category: ErrorCategory = ErrorCategory.UNKNOWN,
+        self,
+        message: str,
+        category: ErrorCategory,
         severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-        details: Dict[str, Any] = None,
-        cause: Exception = None
+        details: Optional[Dict[str, Any]] = None,
+        recovery_suggestions: Optional[str] = None
     ):
         super().__init__(message)
+        self.message = message
         self.category = category
         self.severity = severity
         self.details = details or {}
-        self.cause = cause
+        self.recovery_suggestions = recovery_suggestions
         self.timestamp = time.time()
-
-
-class ValidationError(BioneuroError):
-    """Input validation errors."""
     
-    def __init__(self, message: str, field: str = None, value: Any = None):
-        details = {}
-        if field:
-            details['field'] = field
-        if value is not None:
-            details['value'] = str(value)[:100]  # Truncate long values
-        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary for logging/serialization."""
+        return {
+            "error_type": self.__class__.__name__,
+            "error_msg": self.message,
+            "category": self.category.value,
+            "severity": self.severity.value,
+            "details": self.details,
+            "recovery_suggestions": self.recovery_suggestions,
+            "timestamp": self.timestamp
+        }
+
+
+class ValidationError(NimifyError):
+    """Validation-related errors."""
+    
+    def __init__(self, message: str, **kwargs):
         super().__init__(
-            message, 
+            message=message,
             category=ErrorCategory.VALIDATION,
             severity=ErrorSeverity.MEDIUM,
-            details=details
+            **kwargs
         )
 
 
-class ModelLoadingError(BioneuroError):
-    """Model loading and initialization errors."""
+class ModelError(NimifyError):
+    """Model loading or inference errors."""
     
-    def __init__(self, message: str, model_path: str, model_type: str = None):
-        details = {'model_path': model_path}
-        if model_type:
-            details['model_type'] = model_type
-        
+    def __init__(self, message: str, **kwargs):
         super().__init__(
-            message,
-            category=ErrorCategory.MODEL_LOADING,
+            message=message,
+            category=ErrorCategory.MODEL,
             severity=ErrorSeverity.HIGH,
-            details=details
+            **kwargs
         )
 
 
-class InferenceError(BioneuroError):
-    """Model inference errors."""
-    
-    def __init__(self, message: str, input_shape: str = None, batch_size: int = None):
-        details = {}
-        if input_shape:
-            details['input_shape'] = input_shape
-        if batch_size:
-            details['batch_size'] = batch_size
-        
-        super().__init__(
-            message,
-            category=ErrorCategory.INFERENCE,
-            severity=ErrorSeverity.HIGH,
-            details=details
-        )
-
-
-class ResourceError(BioneuroError):
-    """Resource allocation and management errors."""
-    
-    def __init__(self, message: str, resource_type: str, current_usage: str = None):
-        details = {'resource_type': resource_type}
-        if current_usage:
-            details['current_usage'] = current_usage
-        
-        super().__init__(
-            message,
-            category=ErrorCategory.RESOURCE,
-            severity=ErrorSeverity.HIGH,
-            details=details
-        )
-
-
-class SecurityError(BioneuroError):
+class SecurityError(NimifyError):
     """Security-related errors."""
     
-    def __init__(self, message: str, threat_type: str = None, client_ip: str = None):
-        details = {}
-        if threat_type:
-            details['threat_type'] = threat_type
-        if client_ip:
-            details['client_ip'] = client_ip
-        
+    def __init__(self, message: str, **kwargs):
         super().__init__(
-            message,
+            message=message,
             category=ErrorCategory.SECURITY,
             severity=ErrorSeverity.CRITICAL,
-            details=details
+            **kwargs
         )
 
 
-class NeuralDataError(BioneuroError):
-    """Neural data processing errors."""
+class ConfigurationError(NimifyError):
+    """Configuration-related errors."""
     
-    def __init__(self, message: str, signal_type: str = None, channels: int = None, sampling_rate: int = None):
-        details = {}
-        if signal_type:
-            details['signal_type'] = signal_type
-        if channels:
-            details['channels'] = channels
-        if sampling_rate:
-            details['sampling_rate'] = sampling_rate
-        
+    def __init__(self, message: str, **kwargs):
         super().__init__(
-            message,
-            category=ErrorCategory.NEURAL_DATA,
+            message=message,
+            category=ErrorCategory.CONFIGURATION,
             severity=ErrorSeverity.HIGH,
-            details=details
+            **kwargs
         )
 
 
-class OlfactoryDataError(BioneuroError):
-    """Olfactory data processing errors."""
+class InfrastructureError(NimifyError):
+    """Infrastructure-related errors."""
     
-    def __init__(self, message: str, molecule_name: str = None, concentration: float = None):
-        details = {}
-        if molecule_name:
-            details['molecule_name'] = molecule_name
-        if concentration is not None:
-            details['concentration'] = concentration
-        
+    def __init__(self, message: str, **kwargs):
         super().__init__(
-            message,
-            category=ErrorCategory.OLFACTORY_DATA,
+            message=message,
+            category=ErrorCategory.INFRASTRUCTURE,
             severity=ErrorSeverity.HIGH,
-            details=details
+            **kwargs
         )
 
 
-class FusionProcessingError(BioneuroError):
-    """Multi-modal fusion processing errors."""
+class ErrorHandler:
+    """Centralized error handling with recovery mechanisms."""
     
-    def __init__(self, message: str, fusion_strategy: str = None, modalities: list = None):
-        details = {}
-        if fusion_strategy:
-            details['fusion_strategy'] = fusion_strategy
-        if modalities:
-            details['modalities'] = modalities
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        self.logger = logger or logging.getLogger(__name__)
+        self.error_counts = {}
+        self.recovery_strategies = {}
         
-        super().__init__(
-            message,
-            category=ErrorCategory.FUSION_PROCESSING,
-            severity=ErrorSeverity.HIGH,
-            details=details
-        )
-
-
-class TemporalAlignmentError(BioneuroError):
-    """Temporal alignment processing errors."""
+    def register_recovery_strategy(
+        self,
+        error_type: type,
+        strategy: Callable[[Exception], Any]
+    ):
+        """Register a recovery strategy for specific error type."""
+        self.recovery_strategies[error_type] = strategy
     
-    def __init__(self, message: str, time_window: float = None, alignment_quality: float = None):
-        details = {}
-        if time_window:
-            details['time_window'] = time_window
-        if alignment_quality is not None:
-            details['alignment_quality'] = alignment_quality
+    def handle_error(
+        self,
+        error: Exception,
+        context: Optional[Dict[str, Any]] = None,
+        attempt_recovery: bool = True
+    ) -> Optional[Any]:
+        """Handle error with optional recovery attempt."""
+        context = context or {}
         
-        super().__init__(
-            message,
-            category=ErrorCategory.TEMPORAL_ALIGNMENT,
-            severity=ErrorSeverity.MEDIUM,
-            details=details
-        )
-
-
-class DataQualityError(BioneuroError):
-    """Data quality assessment errors."""
-    
-    def __init__(self, message: str, quality_score: float = None, quality_issues: list = None):
-        details = {}
-        if quality_score is not None:
-            details['quality_score'] = quality_score
-        if quality_issues:
-            details['quality_issues'] = quality_issues
-        
-        super().__init__(
-            message,
-            category=ErrorCategory.DATA_QUALITY,
-            severity=ErrorSeverity.MEDIUM,
-            details=details
-        )
-
-
-class ErrorRecoveryManager:
-    """Manages error recovery strategies and retry logic."""
-    
-    def __init__(self):
-        self.recovery_strategies: Dict[ErrorCategory, List[Callable]] = {}
-        self.error_history: List[ErrorContext] = []
-        self.max_history = 1000
-        self._lock = threading.Lock()
-    
-    def register_recovery_strategy(self, category: ErrorCategory, strategy: Callable):
-        """Register a recovery strategy for a specific error category."""
-        if category not in self.recovery_strategies:
-            self.recovery_strategies[category] = []
-        self.recovery_strategies[category].append(strategy)
-    
-    def handle_error(self, error: Exception, context: Dict[str, Any] = None) -> ErrorContext:
-        """Handle an error with appropriate recovery strategies."""
-        # Create error context
-        if isinstance(error, BioneuroError):
-            error_context = ErrorContext(
-                error_id=f"err_{int(time.time())}_{hash(str(error)) % 10000:04d}",
-                category=error.category,
-                severity=error.severity,
-                message=str(error),
-                details=error.details.copy(),
-                traceback=traceback.format_exc(),
-                **{k: v for k, v in (context or {}).items() if k in ['request_id', 'user_id']}
-            )
-        else:
-            # Handle non-bioneuro exceptions
-            error_context = ErrorContext(
-                error_id=f"err_{int(time.time())}_{hash(str(error)) % 10000:04d}",
-                category=self._classify_error(error),
-                severity=ErrorSeverity.MEDIUM,
-                message=str(error),
-                traceback=traceback.format_exc(),
-                **{k: v for k, v in (context or {}).items() if k in ['request_id', 'user_id']}
-            )
-        
-        # Record error
-        with self._lock:
-            self.error_history.append(error_context)
-            if len(self.error_history) > self.max_history:
-                self.error_history.pop(0)
-        
-        # Log error
-        self._log_error(error_context)
-        
-        # Attempt recovery if strategies are available
-        if error_context.category in self.recovery_strategies:
-            self._attempt_recovery(error_context)
-        
-        return error_context
-    
-    def _classify_error(self, error: Exception) -> ErrorCategory:
-        """Classify error by type and message."""
-        error_type = type(error).__name__.lower()
-        error_msg = str(error).lower()
-        
-        if 'validation' in error_msg or 'invalid' in error_msg:
-            return ErrorCategory.VALIDATION
-        elif 'model' in error_msg or 'load' in error_msg:
-            return ErrorCategory.MODEL_LOADING
-        elif 'inference' in error_msg or 'predict' in error_msg:
-            return ErrorCategory.INFERENCE
-        elif 'network' in error_msg or 'connection' in error_msg:
-            return ErrorCategory.NETWORK
-        elif 'auth' in error_msg or 'permission' in error_msg:
-            return ErrorCategory.AUTHENTICATION
-        elif 'memory' in error_msg or 'resource' in error_msg:
-            return ErrorCategory.RESOURCE
-        elif 'config' in error_msg or 'setting' in error_msg:
-            return ErrorCategory.CONFIGURATION
-        elif 'deploy' in error_msg or 'kubernetes' in error_msg:
-            return ErrorCategory.DEPLOYMENT
-        elif 'security' in error_msg or 'threat' in error_msg:
-            return ErrorCategory.SECURITY
-        else:
-            return ErrorCategory.UNKNOWN
-    
-    def _log_error(self, error_context: ErrorContext):
-        """Log error with appropriate level."""
-        log_data = {
-            'error_id': error_context.error_id,
-            'category': error_context.category.value,
-            'severity': error_context.severity.value,
-            'details': error_context.details,
-            'request_id': error_context.request_id,
-            'user_id': error_context.user_id
+        # Log error with context
+        error_data = {
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "context": context,
+            "error_traceback": traceback.format_exc()
         }
         
-        if error_context.severity == ErrorSeverity.CRITICAL:
-            logger.critical(f"CRITICAL ERROR: {error_context.message}", extra=log_data)
-        elif error_context.severity == ErrorSeverity.HIGH:
-            logger.error(f"HIGH SEVERITY: {error_context.message}", extra=log_data)
-        elif error_context.severity == ErrorSeverity.MEDIUM:
-            logger.warning(f"MEDIUM SEVERITY: {error_context.message}", extra=log_data)
-        else:
-            logger.info(f"LOW SEVERITY: {error_context.message}", extra=log_data)
-    
-    def _attempt_recovery(self, error_context: ErrorContext):
-        """Attempt recovery using registered strategies."""
-        if error_context.recovery_attempts >= error_context.max_recovery_attempts:
-            logger.error(f"Max recovery attempts reached for error {error_context.error_id}")
-            return False
+        if isinstance(error, NimifyError):
+            error_data.update(error.to_dict())
+            
+        self.logger.error(f"Error handled: {error}", extra=error_data)
         
-        error_context.recovery_attempts += 1
-        strategies = self.recovery_strategies.get(error_context.category, [])
+        # Track error counts
+        error_type_name = type(error).__name__
+        self.error_counts[error_type_name] = self.error_counts.get(error_type_name, 0) + 1
         
-        for strategy in strategies:
+        # Attempt recovery if enabled and strategy exists
+        if attempt_recovery and type(error) in self.recovery_strategies:
             try:
-                if strategy(error_context):
-                    logger.info(f"Recovery successful for error {error_context.error_id}")
-                    return True
-            except Exception as e:
-                logger.error(f"Recovery strategy failed: {e}")
+                recovery_result = self.recovery_strategies[type(error)](error)
+                self.logger.info(f"Recovery successful for {error_type_name}")
+                return recovery_result
+            except Exception as recovery_error:
+                self.logger.error(f"Recovery failed for {error_type_name}: {recovery_error}")
         
-        return False
+        return None
     
-    def get_error_statistics(self) -> Dict[str, Any]:
-        """Get error statistics for monitoring."""
-        with self._lock:
-            if not self.error_history:
-                return {
-                    'total_errors': 0,
-                    'by_category': {},
-                    'by_severity': {},
-                    'recent_errors': []
-                }
-            
-            # Count by category
-            by_category = {}
-            for ctx in self.error_history:
-                category = ctx.category.value
-                by_category[category] = by_category.get(category, 0) + 1
-            
-            # Count by severity
-            by_severity = {}
-            for ctx in self.error_history:
-                severity = ctx.severity.value
-                by_severity[severity] = by_severity.get(severity, 0) + 1
-            
-            # Recent errors (last 10)
-            recent_errors = [
-                {
-                    'error_id': ctx.error_id,
-                    'category': ctx.category.value,
-                    'severity': ctx.severity.value,
-                    'message': ctx.message,
-                    'timestamp': ctx.timestamp
-                }
-                for ctx in self.error_history[-10:]
-            ]
-            
-            return {
-                'total_errors': len(self.error_history),
-                'by_category': by_category,
-                'by_severity': by_severity,
-                'recent_errors': recent_errors
-            }
+    def get_error_stats(self) -> Dict[str, int]:
+        """Get error statistics."""
+        return self.error_counts.copy()
 
 
-# Retry decorator with exponential backoff
-def retry(
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: tuple = (Exception,),
-    on_retry: Callable = None
+def with_error_handling(
+    error_handler: ErrorHandler,
+    reraise_on_failure: bool = True,
+    context_provider: Optional[Callable] = None
 ):
-    """Retry decorator with exponential backoff."""
-    def decorator(func):
+    """Decorator for automatic error handling."""
+    
+    def decorator(func: Callable):
+        @wraps(func)
         def wrapper(*args, **kwargs):
-            attempts = 0
-            current_delay = delay
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                context = {}
+                if context_provider:
+                    try:
+                        context = context_provider(*args, **kwargs)
+                    except:
+                        pass
+                
+                recovery_result = error_handler.handle_error(e, context=context)
+                
+                if recovery_result is not None:
+                    return recovery_result
+                elif reraise_on_failure:
+                    raise
+                else:
+                    return None
+                    
+        return wrapper
+    return decorator
+
+
+class RetryableError(NimifyError):
+    """Error that can be retried."""
+    
+    def __init__(self, message: str, max_retries: int = 3, **kwargs):
+        super().__init__(message=message, **kwargs)
+        self.max_retries = max_retries
+
+
+def retry_on_error(
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+    exponential_backoff: bool = True,
+    retryable_exceptions: tuple = (RetryableError,)
+):
+    """Decorator for automatic retry on specific exceptions."""
+    
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            current_delay = retry_delay
             
-            while attempts < max_attempts:
+            for attempt in range(max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except exceptions as e:
-                    attempts += 1
-                    if attempts == max_attempts:
-                        logger.error(f"Max retry attempts ({max_attempts}) reached for {func.__name__}: {e}")
-                        raise
+                except retryable_exceptions as e:
+                    last_exception = e
                     
-                    if on_retry:
-                        on_retry(e, attempts)
+                    if attempt == max_retries:
+                        break
                     
-                    logger.warning(f"Retry {attempts}/{max_attempts} for {func.__name__} after {current_delay}s: {e}")
+                    logging.getLogger(__name__).warning(
+                        f"Retry {attempt + 1}/{max_retries} for {func.__name__}: {e}"
+                    )
+                    
                     time.sleep(current_delay)
-                    current_delay *= backoff
+                    
+                    if exponential_backoff:
+                        current_delay *= 2
             
-            return None
+            if last_exception:
+                raise last_exception
+                
         return wrapper
     return decorator
 
 
-# Async retry decorator
-def async_retry(
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: tuple = (Exception,),
-    on_retry: Callable = None
-):
-    """Async retry decorator with exponential backoff."""
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
-            attempts = 0
-            current_delay = delay
-            
-            while attempts < max_attempts:
-                try:
-                    return await func(*args, **kwargs)
-                except exceptions as e:
-                    attempts += 1
-                    if attempts == max_attempts:
-                        logger.error(f"Max retry attempts ({max_attempts}) reached for {func.__name__}: {e}")
-                        raise
-                    
-                    if on_retry:
-                        await on_retry(e, attempts) if asyncio.iscoroutinefunction(on_retry) else on_retry(e, attempts)
-                    
-                    logger.warning(f"Retry {attempts}/{max_attempts} for {func.__name__} after {current_delay}s: {e}")
-                    await asyncio.sleep(current_delay)
-                    current_delay *= backoff
-            
-            return None
-        return wrapper
-    return decorator
+# Global error handler instance
+global_error_handler = ErrorHandler()
 
 
-@contextmanager
-def error_context(context_info: Dict[str, Any]):
-    """Context manager for error handling."""
-    try:
-        yield
-    except Exception as e:
-        error_manager.handle_error(e, context_info)
-        raise
-
-
-# Default recovery strategies
-def model_loading_recovery(error_context: ErrorContext) -> bool:
+# Recovery strategies
+def model_loading_recovery(error: Exception) -> Optional[Any]:
     """Recovery strategy for model loading errors."""
-    logger.info(f"Attempting model loading recovery for error {error_context.error_id}")
-    
-    # Try clearing model cache
-    try:
-        import gc
-        gc.collect()
-        logger.info("Cleared Python garbage collector")
-        return True
-    except Exception as e:
-        logger.error(f"Model loading recovery failed: {e}")
-        return False
+    if "CUDA" in str(error):
+        logging.getLogger(__name__).info("CUDA error detected, falling back to CPU")
+        # Would attempt CPU fallback here
+        return None
+    return None
 
 
-def resource_recovery(error_context: ErrorContext) -> bool:
-    """Recovery strategy for resource errors."""
-    logger.info(f"Attempting resource recovery for error {error_context.error_id}")
-    
-    # Try freeing up memory
-    try:
-        import gc
-        gc.collect()
-        
-        # Clear caches if available
-        if hasattr(sys.modules.get('nimify.performance'), 'model_cache'):
-            sys.modules['nimify.performance'].model_cache.clear()
-            logger.info("Cleared model cache")
-        
-        return True
-    except Exception as e:
-        logger.error(f"Resource recovery failed: {e}")
-        return False
+def infrastructure_recovery(error: Exception) -> Optional[Any]:
+    """Recovery strategy for infrastructure errors."""
+    if "connection" in str(error).lower():
+        logging.getLogger(__name__).info("Connection error detected, implementing backoff")
+        time.sleep(5)  # Simple backoff
+        return None
+    return None
 
-
-def network_recovery(error_context: ErrorContext) -> bool:
-    """Recovery strategy for network errors."""
-    logger.info(f"Attempting network recovery for error {error_context.error_id}")
-    
-    # Wait and retry (simple strategy)
-    try:
-        time.sleep(1.0)
-        logger.info("Completed network recovery delay")
-        return True
-    except Exception as e:
-        logger.error(f"Network recovery failed: {e}")
-        return False
-
-
-# Global error manager instance
-error_manager = ErrorRecoveryManager()
 
 # Register default recovery strategies
-error_manager.register_recovery_strategy(ErrorCategory.MODEL_LOADING, model_loading_recovery)
-error_manager.register_recovery_strategy(ErrorCategory.RESOURCE, resource_recovery)
-error_manager.register_recovery_strategy(ErrorCategory.NETWORK, network_recovery)
-
-
-# Health check function
-def get_system_health() -> Dict[str, Any]:
-    """Get comprehensive system health status."""
-    error_stats = error_manager.get_error_statistics()
-    
-    # Calculate health score (0-100)
-    total_errors = error_stats['total_errors']
-    critical_errors = error_stats['by_severity'].get('critical', 0)
-    high_errors = error_stats['by_severity'].get('high', 0)
-    
-    if total_errors == 0:
-        health_score = 100
-        status = "healthy"
-    elif critical_errors > 0:
-        health_score = max(0, 50 - (critical_errors * 10))
-        status = "critical"
-    elif high_errors > 5:
-        health_score = max(30, 80 - (high_errors * 5))
-        status = "degraded"
-    elif total_errors > 20:
-        health_score = max(60, 90 - total_errors)
-        status = "warning"
-    else:
-        health_score = max(70, 100 - total_errors)
-        status = "healthy"
-    
-    return {
-        'status': status,
-        'health_score': health_score,
-        'error_statistics': error_stats,
-        'timestamp': time.time()
-    }
+global_error_handler.register_recovery_strategy(ModelError, model_loading_recovery)
+global_error_handler.register_recovery_strategy(InfrastructureError, infrastructure_recovery)

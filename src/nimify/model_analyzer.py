@@ -307,7 +307,7 @@ dynamic_batching {
         
         return config
     
-    @staticmethod
+    @staticmethod  
     def analyze_pytorch_model(model_path: str) -> Dict:
         """Analyze PyTorch model using basic inspection."""
         try:
@@ -400,3 +400,4 @@ dynamic_batching {
         except Exception as e:
             logger.error(f"Failed to analyze TensorFlow model: {e}")
             return ModelAnalyzer._get_default_schema("tensorflow", model_path)
+    

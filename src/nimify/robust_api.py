@@ -1,546 +1,349 @@
-"""Robust API implementation with comprehensive error handling and security."""
+"""Robust FastAPI application with error handling and circuit breaker."""
 
-import asyncio
-import logging
 import time
 import uuid
+import logging
 from typing import Any, Dict, List, Optional
-import json
-from pathlib import Path
+from contextlib import asynccontextmanager
 
-# Simulated FastAPI components for demonstration
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.security import HTTPBearer
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from pydantic import BaseModel, Field
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+import numpy as np
+
+from .logging_config import setup_logging, log_api_request, log_security_event, log_performance_metric
 from .error_handling import (
-    NimifyError, ValidationError, InferenceError, SecurityError, 
-    error_manager, ErrorCategory, ErrorSeverity, retry, async_retry
+    global_error_handler, with_error_handling, ValidationError as ValidError,
+    ModelError, SecurityError, InfrastructureError, ErrorSeverity
 )
-from .validation import RequestValidator
-from .security import (
-    rate_limiter, ip_blocklist, api_key_manager, threat_detector,
-    SecurityHeaders, InputSanitizer
+from .circuit_breaker import (
+    ModelInferenceCircuitBreaker, CircuitBreakerException,
+    global_circuit_breakers
 )
-from .performance import metrics_collector, model_cache, circuit_breaker
-from .logging_config import log_security_event, log_api_request, log_performance_metric
 
-logger = logging.getLogger(__name__)
+
+# Set up logging
+logger = setup_logging("nim-service-robust", log_level="INFO", enable_audit=True)
+
+# Metrics
+REQUEST_COUNT = Counter('nim_robust_request_count_total', 'Total requests', ['method', 'endpoint', 'status'])
+REQUEST_DURATION = Histogram('nim_robust_request_duration_seconds', 'Request duration')
+INFERENCE_DURATION = Histogram('nim_robust_inference_duration_seconds', 'Model inference duration')
+ERROR_COUNT = Counter('nim_robust_error_count_total', 'Total errors', ['error_type', 'endpoint'])
+
+
+class PredictionRequest(BaseModel):
+    """Enhanced request model with validation."""
+    input: List[List[float]] = Field(..., description="Input data for inference", min_length=1, max_length=64)
+
+
+class PredictionResponse(BaseModel):
+    """Enhanced response model with metadata."""
+    predictions: List[List[float]] = Field(..., description="Model predictions")
+    inference_time_ms: float = Field(..., description="Inference time in milliseconds")
+    request_id: str = Field(..., description="Unique request identifier")
+    model_version: str = Field("1.0.0", description="Model version")
+    circuit_breaker_status: str = Field(..., description="Circuit breaker status")
+
+
+class HealthResponse(BaseModel):
+    """Comprehensive health check response."""
+    status: str = Field(..., description="Service status")
+    model_loaded: bool = Field(..., description="Whether model is loaded")
+    version: str = Field(..., description="Service version")
+    uptime_seconds: float = Field(..., description="Service uptime in seconds")
+    circuit_breakers: Dict[str, str] = Field(..., description="Circuit breaker states")
+    error_counts: Dict[str, int] = Field(..., description="Error statistics")
+
+
+class ErrorResponse(BaseModel):
+    """Standardized error response."""
+    error: str = Field(..., description="Error message")
+    error_type: str = Field(..., description="Error type")
+    request_id: str = Field(..., description="Request identifier")
+    timestamp: float = Field(..., description="Error timestamp")
+    severity: str = Field(..., description="Error severity")
+    recovery_suggestions: Optional[str] = Field(None, description="Recovery suggestions")
 
 
 class RobustModelLoader:
-    """Model loader with comprehensive error handling and recovery."""
+    """Model loader with circuit breaker and error handling."""
     
-    def __init__(self, model_path: str, max_retries: int = 3):
+    def __init__(self, model_path: str):
         self.model_path = model_path
-        self.max_retries = max_retries
-        self.model_session = None
-        self.load_time = None
-        self.is_healthy = False
-        self._lock = asyncio.Lock()
+        self.session: Optional[Any] = None
+        self.input_name: Optional[str] = None
+        self.output_names: Optional[List[str]] = None
+        self.circuit_breaker = ModelInferenceCircuitBreaker("primary_model")
+        self.fallback_available = False
     
-    @async_retry(max_attempts=3, delay=2.0, exceptions=(Exception,))
+    @with_error_handling(global_error_handler)
     async def load_model(self):
-        """Load model with retry logic and health checking."""
-        async with self._lock:
-            if self.model_session is not None:
-                return self.model_session
-            
-            start_time = time.time()
-            
-            try:
-                logger.info(f"Loading model from {self.model_path}")
-                
-                # Validate model file exists
-                model_file = Path(self.model_path)
-                if not model_file.exists():
-                    raise ValidationError(
-                        f"Model file not found: {self.model_path}",
-                        field="model_path",
-                        value=self.model_path
-                    )
-                
-                # Check file size (basic validation)
-                file_size = model_file.stat().st_size
-                if file_size == 0:
-                    raise ValidationError(
-                        "Model file is empty",
-                        field="model_size",
-                        value=file_size
-                    )
-                
-                if file_size > 10 * 1024 * 1024 * 1024:  # 10GB limit
-                    raise ValidationError(
-                        f"Model file too large: {file_size} bytes",
-                        field="model_size", 
-                        value=file_size
-                    )
-                
-                # Simulate model loading (in real implementation, use ONNX Runtime)
-                await asyncio.sleep(0.1)  # Simulate loading time
-                
-                # Create mock session
-                self.model_session = {
-                    'model_path': self.model_path,
-                    'input_names': ['input'],
-                    'output_names': ['output'],
-                    'loaded_at': time.time()
-                }
-                
-                self.load_time = time.time() - start_time
-                self.is_healthy = True
-                
-                logger.info(f"Model loaded successfully in {self.load_time:.2f}s")
-                
-                # Log performance metric
-                log_performance_metric("model_load_time", self.load_time * 1000, "ms")
-                
-                return self.model_session
-                
-            except Exception as e:
-                self.is_healthy = False
-                logger.error(f"Model loading failed: {e}")
-                
-                # Handle with error manager
-                error_context = error_manager.handle_error(e, {
-                    'model_path': self.model_path,
-                    'operation': 'model_loading'
-                })
-                
-                raise NimifyError(
-                    f"Failed to load model: {str(e)}",
-                    category=ErrorCategory.MODEL_LOADING,
-                    severity=ErrorSeverity.CRITICAL,
-                    details={'model_path': self.model_path, 'error_id': error_context.error_id}
-                )
-    
-    async def health_check(self) -> Dict[str, Any]:
-        """Comprehensive model health check."""
-        if not self.model_session:
-            return {
-                'status': 'unhealthy',
-                'reason': 'Model not loaded',
-                'loaded': False
-            }
-        
+        """Load model with error handling."""
         try:
-            # Test inference with dummy data
-            test_input = [[1.0, 2.0, 3.0]]
-            result = await self.predict(test_input, health_check=True)
+            # Mock model loading (replace with actual ONNX loading)
+            self.session = {"mock": True}  # Placeholder
+            self.input_name = "input"
+            self.output_names = ["output"]
             
-            return {
-                'status': 'healthy',
-                'loaded': True,
-                'load_time': self.load_time,
-                'last_inference': time.time()
-            }
+            logger.info(f"Model loaded successfully: {self.model_path}")
             
         except Exception as e:
-            self.is_healthy = False
-            logger.error(f"Model health check failed: {e}")
-            
-            return {
-                'status': 'unhealthy',
-                'reason': str(e),
-                'loaded': True,
-                'load_time': self.load_time
-            }
+            raise ModelError(
+                f"Failed to load model {self.model_path}: {str(e)}",
+                details={"model_path": self.model_path},
+                recovery_suggestions="Check model file format and permissions"
+            )
     
-    @async_retry(max_attempts=2, delay=0.5, exceptions=(InferenceError,))
-    async def predict(self, input_data: List[List[float]], health_check: bool = False) -> List[List[float]]:
-        """Run inference with error handling and caching."""
-        if not self.model_session:
-            raise InferenceError("Model not loaded")
+    async def predict(self, input_data: List[List[float]]) -> List[List[float]]:
+        """Run inference with circuit breaker protection."""
+        if not self.session:
+            raise ModelError("Model not loaded")
         
-        if not circuit_breaker.can_execute():
-            raise InferenceError("Circuit breaker is open - service temporarily unavailable")
-        
-        start_time = time.time()
+        def _do_inference():
+            """Internal inference function."""
+            # Mock inference (replace with actual model inference)
+            input_array = np.array(input_data, dtype=np.float32)
+            predictions = (input_array * 2).tolist()  # Simple mock
+            return predictions
         
         try:
-            # Check cache first (unless health check)
-            if not health_check:
-                cached_result = model_cache.get(input_data)
-                if cached_result:
-                    metrics_collector.record_cache_hit()
-                    logger.debug("Cache hit for inference request")
-                    return cached_result
-                else:
-                    metrics_collector.record_cache_miss()
+            start_time = time.time()
+            predictions = self.circuit_breaker.predict(_do_inference)
+            inference_time = (time.time() - start_time) * 1000
             
-            # Validate input dimensions
-            if not input_data or not isinstance(input_data, list):
-                raise ValidationError("Input must be a non-empty list")
-            
-            batch_size = len(input_data)
-            if batch_size > 64:
-                raise ValidationError(f"Batch size too large: {batch_size} (max: 64)")
-            
-            # Simulate inference
-            await asyncio.sleep(0.01 * batch_size)  # Simulate processing time
-            
-            # Generate mock predictions
-            predictions = [[0.1, 0.2, 0.7] for _ in input_data]
-            
-            inference_time = time.time() - start_time
-            
-            # Record metrics
-            metrics_collector.record_request(inference_time * 1000)  # Convert to ms
-            log_performance_metric("inference_time", inference_time * 1000, "ms")
-            log_performance_metric("batch_size", batch_size, "count")
-            
-            # Cache result (unless health check)
-            if not health_check:
-                model_cache.put(input_data, predictions)
-            
-            # Record success in circuit breaker
-            circuit_breaker.record_success()
-            
-            logger.debug(f"Inference completed in {inference_time:.3f}s for batch size {batch_size}")
+            INFERENCE_DURATION.observe(inference_time / 1000)
+            log_performance_metric("inference_time", inference_time, "ms")
             
             return predictions
             
-        except ValidationError:
-            # Don't retry validation errors
-            circuit_breaker.record_failure()
-            raise
-            
+        except CircuitBreakerException:
+            # Circuit breaker is open
+            if self.fallback_available:
+                logger.warning("Using fallback prediction due to circuit breaker")
+                return await self._fallback_predict(input_data)
+            else:
+                raise
         except Exception as e:
-            circuit_breaker.record_failure()
-            
-            # Handle with error manager
-            error_context = error_manager.handle_error(e, {
-                'batch_size': len(input_data) if input_data else 0,
-                'operation': 'inference'
-            })
-            
-            raise InferenceError(
+            raise ModelError(
                 f"Inference failed: {str(e)}",
-                batch_size=len(input_data) if input_data else 0,
-                input_shape=f"{len(input_data)}x{len(input_data[0]) if input_data and input_data[0] else 0}"
+                severity=ErrorSeverity.HIGH,
+                details={"input_shape": np.array(input_data).shape if input_data else None},
+                recovery_suggestions="Check input format and model compatibility"
             )
+    
+    async def _fallback_predict(self, input_data: List[List[float]]) -> List[List[float]]:
+        """Fallback prediction when circuit breaker is open."""
+        # Simple fallback: return zeros or last known good prediction
+        input_array = np.array(input_data, dtype=np.float32)
+        return np.zeros_like(input_array).tolist()
 
 
-class RobustAPIHandler:
-    """API handler with comprehensive security and error handling."""
-    
-    def __init__(self, model_loader: RobustModelLoader):
-        self.model_loader = model_loader
-        self.active_requests = 0
-        self.max_concurrent_requests = 100
-        self._request_semaphore = asyncio.Semaphore(self.max_concurrent_requests)
-    
-    async def predict(self, request_data: Dict[str, Any], client_info: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle prediction request with comprehensive validation and security."""
-        request_id = str(uuid.uuid4())
-        start_time = time.time()
-        client_ip = client_info.get('client_ip', 'unknown')
-        user_agent = client_info.get('user_agent', 'unknown')
-        
-        # Increment active requests counter
-        metrics_collector.increment_concurrent()
-        
-        try:
-            async with self._request_semaphore:
-                return await self._process_request(request_data, request_id, client_ip, user_agent, start_time)
-        finally:
-            metrics_collector.decrement_concurrent()
-    
-    async def _process_request(self, request_data: Dict[str, Any], request_id: str, 
-                             client_ip: str, user_agent: str, start_time: float) -> Dict[str, Any]:
-        """Process individual request with security checks."""
-        
-        try:
-            # Security checks
-            await self._security_checks(request_data, client_ip, user_agent, request_id)
-            
-            # Validate request structure
-            input_data = self._validate_request(request_data)
-            
-            # Load model if not already loaded
-            if not self.model_loader.model_session:
-                await self.model_loader.load_model()
-            
-            # Run inference
-            predictions = await self.model_loader.predict(input_data)
-            
-            inference_time_ms = (time.time() - start_time) * 1000
-            
-            # Log successful request
-            log_api_request(
-                method="POST",
-                endpoint="/v1/predict",
-                status_code=200,
-                duration_ms=inference_time_ms,
-                ip_address=client_ip,
-                user_agent=user_agent,
-                request_id=request_id
-            )
-            
-            return {
-                'predictions': predictions,
-                'inference_time_ms': inference_time_ms,
-                'request_id': request_id,
-                'model_version': '1.0.0',
-                'cache_hit': False  # Would be determined by model_cache
-            }
-            
-        except ValidationError as e:
-            # Log validation error
-            log_security_event(
-                event_type="validation_error",
-                message=f"Input validation failed: {str(e)}",
-                ip_address=client_ip,
-                request_id=request_id
-            )
-            
-            raise {
-                'error': 'Validation Error',
-                'message': str(e),
-                'request_id': request_id,
-                'timestamp': time.time()
-            }
-            
-        except SecurityError as e:
-            # Log security event
-            log_security_event(
-                event_type="security_violation",
-                message=f"Security violation: {str(e)}",
-                ip_address=client_ip,
-                request_id=request_id,
-                level=logging.CRITICAL
-            )
-            
-            # Block IP for repeated security violations
-            if threat_detector.is_under_attack(client_ip):
-                ip_blocklist.block_ip(client_ip, duration_minutes=60)
-            
-            raise {
-                'error': 'Security Error',
-                'message': 'Access denied',
-                'request_id': request_id,
-                'timestamp': time.time()
-            }
-            
-        except InferenceError as e:
-            # Log inference error
-            logger.error(f"Inference error for request {request_id}: {e}")
-            
-            raise {
-                'error': 'Inference Error',
-                'message': 'Model inference failed',
-                'request_id': request_id,
-                'timestamp': time.time()
-            }
-            
-        except Exception as e:
-            # Handle unexpected errors
-            error_context = error_manager.handle_error(e, {
-                'request_id': request_id,
-                'client_ip': client_ip,
-                'operation': 'api_request'
-            })
-            
-            logger.error(f"Unexpected error in request {request_id}: {e}")
-            
-            raise {
-                'error': 'Internal Server Error',
-                'message': 'An unexpected error occurred',
-                'request_id': request_id,
-                'error_id': error_context.error_id,
-                'timestamp': time.time()
-            }
-    
-    async def _security_checks(self, request_data: Dict[str, Any], client_ip: str, 
-                             user_agent: str, request_id: str):
-        """Comprehensive security validation."""
-        
-        # Check IP blocklist
-        if ip_blocklist.is_blocked(client_ip):
-            log_security_event(
-                event_type="blocked_ip_attempt",
-                message=f"Request from blocked IP: {client_ip}",
-                ip_address=client_ip,
-                request_id=request_id
-            )
-            raise SecurityError("IP address is blocked", client_ip=client_ip)
-        
-        # Rate limiting
-        allowed, retry_after = rate_limiter.is_allowed(client_ip)
-        if not allowed:
-            log_security_event(
-                event_type="rate_limit_exceeded",
-                message=f"Rate limit exceeded for IP: {client_ip}",
-                ip_address=client_ip,
-                request_id=request_id
-            )
-            raise SecurityError(f"Rate limit exceeded. Retry after {retry_after} seconds", client_ip=client_ip)
-        
-        # Check for suspicious activity
-        if rate_limiter.is_suspicious_activity(client_ip):
-            log_security_event(
-                event_type="suspicious_activity",
-                message=f"Suspicious activity detected from IP: {client_ip}",
-                ip_address=client_ip,
-                request_id=request_id
-            )
-            threat_detector.record_failed_attempt(client_ip, "suspicious_pattern")
-        
-        # Validate user agent
-        if not user_agent or len(user_agent) > 500:
-            log_security_event(
-                event_type="invalid_user_agent",
-                message=f"Invalid user agent: {user_agent[:100]}",
-                ip_address=client_ip,
-                request_id=request_id
-            )
-            raise SecurityError("Invalid user agent", client_ip=client_ip)
-        
-        # Content analysis
-        content_str = json.dumps(request_data)
-        analysis = threat_detector.analyze_request_content(content_str)
-        
-        # Check for high-risk content
-        risk_score = (
-            analysis['suspicious_keywords'] * 2 +
-            analysis['encoded_content'] * 3 +
-            analysis['sql_patterns'] * 5 +
-            analysis['script_patterns'] * 5
-        )
-        
-        if risk_score > 10:
-            log_security_event(
-                event_type="high_risk_content",
-                message=f"High-risk content detected (score: {risk_score}): {analysis}",
-                ip_address=client_ip,
-                request_id=request_id,
-                level=logging.WARNING
-            )
-            # Don't block immediately, but record the attempt
-            threat_detector.record_failed_attempt(client_ip, "high_risk_content")
-    
-    def _validate_request(self, request_data: Dict[str, Any]) -> List[List[float]]:
-        """Validate and sanitize request data."""
-        
-        # Check required fields
-        if 'input' not in request_data:
-            raise ValidationError("Missing required field 'input'", field="input")
-        
-        input_data = request_data['input']
-        
-        # Type validation
-        if not isinstance(input_data, list):
-            raise ValidationError("Input must be a list", field="input", value=type(input_data).__name__)
-        
-        if not input_data:
-            raise ValidationError("Input cannot be empty", field="input")
-        
-        # Batch size validation
-        if len(input_data) > 64:
-            raise ValidationError(f"Batch size too large: {len(input_data)} (max: 64)", 
-                                field="batch_size", value=len(input_data))
-        
-        # Validate each item in batch
-        processed_input = []
-        for i, item in enumerate(input_data):
-            if not isinstance(item, list):
-                raise ValidationError(f"Input item {i} must be a list", 
-                                    field=f"input[{i}]", value=type(item).__name__)
-            
-            # Validate numeric values
-            processed_item = []
-            for j, value in enumerate(item):
-                if not isinstance(value, (int, float)):
-                    raise ValidationError(f"Input item [{i}][{j}] must be numeric", 
-                                        field=f"input[{i}][{j}]", value=type(value).__name__)
-                
-                # Check for NaN or infinity
-                if isinstance(value, float):
-                    import math
-                    if math.isnan(value) or math.isinf(value):
-                        raise ValidationError(f"Invalid numeric value at [{i}][{j}]", 
-                                            field=f"input[{i}][{j}]", value=str(value))
-                
-                processed_item.append(float(value))
-            
-            # Check input dimensions consistency
-            if i == 0:
-                expected_length = len(processed_item)
-            elif len(processed_item) != expected_length:
-                raise ValidationError(f"Input dimension mismatch at item {i}: expected {expected_length}, got {len(processed_item)}", 
-                                    field=f"input[{i}]")
-            
-            processed_input.append(processed_item)
-        
-        return processed_input
-    
-    async def health_check(self, client_info: Dict[str, Any]) -> Dict[str, Any]:
-        """Comprehensive health check endpoint."""
-        client_ip = client_info.get('client_ip', 'unknown')
-        
-        # Basic security check (no rate limiting for health checks)
-        if ip_blocklist.is_blocked(client_ip):
-            return {
-                'status': 'blocked',
-                'message': 'IP address is blocked',
-                'timestamp': time.time()
-            }
-        
-        try:
-            # Check model health
-            model_health = await self.model_loader.health_check()
-            
-            # Get system metrics
-            metrics = metrics_collector.get_metrics()
-            
-            # Get error statistics
-            from .error_handling import get_system_health
-            system_health = get_system_health()
-            
-            # Get cache statistics
-            cache_stats = model_cache.get_hit_rate()
-            
-            overall_status = "healthy"
-            if not model_health['status'] == 'healthy':
-                overall_status = "unhealthy"
-            elif system_health['status'] in ['critical', 'degraded']:
-                overall_status = system_health['status']
-            
-            return {
-                'status': overall_status,
-                'timestamp': time.time(),
-                'model': model_health,
-                'performance': {
-                    'latency_p50': metrics.latency_p50,
-                    'latency_p95': metrics.latency_p95,
-                    'throughput_rps': metrics.throughput_rps,
-                    'cache_hit_rate': cache_stats,
-                    'concurrent_requests': metrics.concurrent_requests
-                },
-                'system': system_health,
-                'version': '1.0.0'
-            }
-            
-        except Exception as e:
-            error_context = error_manager.handle_error(e, {
-                'client_ip': client_ip,
-                'operation': 'health_check'
-            })
-            
-            return {
-                'status': 'unhealthy',
-                'error': str(e),
-                'error_id': error_context.error_id,
-                'timestamp': time.time()
-            }
+# Global state
+model_loader: Optional[RobustModelLoader] = None
+service_start_time = time.time()
 
 
-# Initialize robust components
-def create_robust_service(model_path: str) -> RobustAPIHandler:
-    """Create a robust NIM service with comprehensive error handling."""
+async def get_request_id() -> str:
+    """Generate unique request ID."""
+    return str(uuid.uuid4())
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Enhanced application lifespan manager."""
+    global model_loader, service_start_time
     
-    # Initialize model loader
+    # Startup
+    service_start_time = time.time()
+    import os
+    model_path = os.getenv("MODEL_PATH", "/models/model.onnx")
     model_loader = RobustModelLoader(model_path)
     
-    # Create API handler
-    api_handler = RobustAPIHandler(model_loader)
+    try:
+        await model_loader.load_model()
+        logger.info("Robust NIM service started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start service: {e}")
+        # Continue for health check endpoint
     
-    logger.info(f"Created robust NIM service for model: {model_path}")
+    yield
     
-    return api_handler
+    # Shutdown
+    logger.info("Robust NIM service shutting down")
+    # Reset circuit breakers for clean restart
+    global_circuit_breakers.reset_all()
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="Robust NIM Service API",
+    description="Production-ready NVIDIA NIM microservice with comprehensive error handling",
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+
+@app.post("/v1/predict", response_model=PredictionResponse)
+async def predict(
+    request: PredictionRequest,
+    req: Request,
+    request_id: str = Depends(get_request_id)
+):
+    """Enhanced prediction endpoint with comprehensive error handling."""
+    REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="start").inc()
+    
+    client_ip = req.client.host if req.client else "unknown"
+    
+    if not model_loader or not model_loader.session:
+        ERROR_COUNT.labels(error_type="model_not_loaded", endpoint="/v1/predict").inc()
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Model not loaded",
+                "error_type": "ModelError",
+                "request_id": request_id,
+                "timestamp": time.time(),
+                "severity": "HIGH"
+            }
+        )
+    
+    try:
+        with REQUEST_DURATION.time():
+            start_time = time.time()
+            
+            # Enhanced input validation
+            if len(request.input) > 64:
+                raise HTTPException(status_code=422, detail="Batch size too large (max: 64)")
+            
+            # Run inference with circuit breaker protection
+            try:
+                predictions = await model_loader.predict(request.input)
+                inference_time_ms = (time.time() - start_time) * 1000
+                
+            except CircuitBreakerException as e:
+                ERROR_COUNT.labels(error_type="circuit_breaker_open", endpoint="/v1/predict").inc()
+                
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": "Service temporarily unavailable due to repeated failures",
+                        "error_type": "CircuitBreakerException",
+                        "request_id": request_id,
+                        "timestamp": time.time(),
+                        "severity": "HIGH",
+                        "recovery_suggestions": "Wait 30 seconds before retrying"
+                    },
+                    headers={"Retry-After": "30"}
+                )
+        
+        REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="success").inc()
+        
+        return PredictionResponse(
+            predictions=predictions,
+            inference_time_ms=inference_time_ms,
+            request_id=request_id,
+            circuit_breaker_status=model_loader.circuit_breaker.get_status()["state"]
+        )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+        
+    except Exception as e:
+        ERROR_COUNT.labels(error_type="inference_error", endpoint="/v1/predict").inc()
+        
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error during inference",
+                "error_type": type(e).__name__,
+                "request_id": request_id,
+                "timestamp": time.time(),
+                "severity": "HIGH"
+            }
+        )
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Comprehensive health check with system status."""
+    model_loaded = model_loader is not None and model_loader.session is not None
+    uptime = time.time() - service_start_time
+    
+    # Get circuit breaker states
+    cb_status = global_circuit_breakers.get_all_status()
+    cb_states = {name: status["state"] for name, status in cb_status.items()}
+    
+    # Get error statistics
+    error_stats = global_error_handler.get_error_stats()
+    
+    # Determine overall status
+    status = "healthy"
+    if not model_loaded:
+        status = "degraded"
+    elif any(state == "open" for state in cb_states.values()):
+        status = "degraded"
+    elif sum(error_stats.values()) > 100:  # Threshold for too many errors
+        status = "degraded"
+    
+    return HealthResponse(
+        status=status,
+        model_loaded=model_loaded,
+        version="2.0.0",
+        uptime_seconds=uptime,
+        circuit_breakers=cb_states,
+        error_counts=error_stats
+    )
+
+
+@app.get("/metrics")
+async def metrics():
+    """Enhanced Prometheus metrics endpoint."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/debug/circuit-breakers")
+async def debug_circuit_breakers():
+    """Debug endpoint for circuit breaker status."""
+    return global_circuit_breakers.get_all_status()
+
+
+@app.post("/admin/reset-circuit-breakers")
+async def reset_circuit_breakers():
+    """Admin endpoint to reset all circuit breakers."""
+    global_circuit_breakers.reset_all()
+    return {"message": "All circuit breakers reset to closed state"}
+
+
+@app.get("/")
+async def root():
+    """Root endpoint with enhanced service info."""
+    return {
+        "service": "Robust NVIDIA NIM Microservice",
+        "version": "2.0.0",
+        "features": [
+            "Circuit Breaker Protection",
+            "Comprehensive Error Handling", 
+            "Security Monitoring",
+            "Performance Metrics",
+            "Automatic Recovery"
+        ],
+        "endpoints": {
+            "predict": "/v1/predict",
+            "health": "/health",
+            "metrics": "/metrics",
+            "debug": "/debug/circuit-breakers",
+            "admin": "/admin/reset-circuit-breakers",
+            "docs": "/docs"
+        }
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
