@@ -1,0 +1,137 @@
+{
+  "summary": {
+    "total_gates": 4,
+    "passed_gates": 0,
+    "warning_gates": 2,
+    "failed_gates": 2,
+    "overall_score": 63.42086437637969,
+    "overall_status": "FAIL",
+    "critical_issues": [
+      "Performance Validation: 53.9%",
+      "Compliance Validation: 31.2%"
+    ],
+    "recommendations": [
+      "Add security configuration file",
+      "Implement comprehensive audit logging",
+      "Complete GDPR compliance documentation",
+      "Add connection pooling for database access",
+      "Validate disaster recovery procedures",
+      "Complete end-to-end testing in staging environment",
+      "Address identified security vulnerabilities in code",
+      "Implement caching for frequently accessed data"
+    ],
+    "production_ready": false,
+    "deployment_approved": false,
+    "execution_summary": "Quality Gates Execution Summary\n===============================\n\nGates Status:\n  \u2705 Passed: 0/4\n  \u26a0\ufe0f  Warning: 2/4\n  \u274c Failed: 2/4\n\nOverall Score: 63.4%\nOverall Status: NEEDS IMPROVEMENT - Critical issues must be resolved\n\nGate Details:\n  \u26a0\ufe0f Security Scanning: 81.0%\n  \u274c Performance Validation: 53.9%\n  \u274c Compliance Validation: 31.2%\n  \u26a0\ufe0f Production Readiness: 87.5%"
+  },
+  "detailed_results": [
+    {
+      "gate_name": "Security Scanning",
+      "status": "WARN",
+      "score": 81.00220750551877,
+      "details": {
+        "code_security": 83.33333333333334,
+        "dependencies": 92.0,
+        "configuration": 50.0,
+        "secrets": 98.67549668874173,
+        "vulnerabilities_found": 5,
+        "compliance_issues": 0
+      },
+      "recommendations": [
+        "Address identified security vulnerabilities in code",
+        "Add security configuration file",
+        "Implement automated security scanning in CI/CD",
+        "Add secret management system",
+        "Enable security monitoring and alerting",
+        "Conduct regular penetration testing"
+      ],
+      "execution_time": 0.0948953628540039,
+      "timestamp": "2025-08-16 20:23:41"
+    },
+    {
+      "gate_name": "Performance Validation",
+      "status": "FAIL",
+      "score": 53.93125,
+      "details": {
+        "code_performance": 0.0,
+        "memory_usage": 78.33333333333333,
+        "load_testing": 54.725,
+        "scalability": 82.66666666666666,
+        "benchmark_results": {
+          "startup_time": 2.3,
+          "memory_footprint_mb": 156,
+          "cpu_efficiency": 85.2,
+          "io_throughput": 1250,
+          "cache_hit_rate": 89.7
+        }
+      },
+      "recommendations": [
+        "Implement caching for frequently accessed data",
+        "Add connection pooling for database access",
+        "Use asynchronous processing for I/O operations",
+        "Optimize memory usage with generators and iterators",
+        "Add performance monitoring and profiling",
+        "Implement auto-scaling based on metrics",
+        "Use CDN for static content delivery",
+        "Optimize database queries and indexing"
+      ],
+      "execution_time": 0.012858867645263672,
+      "timestamp": "2025-08-16 20:23:41"
+    },
+    {
+      "gate_name": "Compliance Validation",
+      "status": "FAIL",
+      "score": 31.25,
+      "details": {
+        "gdpr_compliance": 50.0,
+        "soc2_compliance": 50.0,
+        "data_governance": 0.0,
+        "audit_capabilities": 25.0,
+        "compliance_frameworks": [
+          "GDPR",
+          "SOC2",
+          "ISO27001"
+        ]
+      },
+      "recommendations": [
+        "Complete GDPR compliance documentation",
+        "Implement comprehensive audit logging",
+        "Add data retention and deletion policies",
+        "Establish incident response procedures",
+        "Create data classification framework",
+        "Implement access control mechanisms",
+        "Add encryption for sensitive data",
+        "Regular compliance audits and assessments"
+      ],
+      "execution_time": 0.00035309791564941406,
+      "timestamp": "2025-08-16 20:23:41"
+    },
+    {
+      "gate_name": "Production Readiness",
+      "status": "WARN",
+      "score": 87.5,
+      "details": {
+        "infrastructure": 100.0,
+        "monitoring": 75.0,
+        "deployment": 75.0,
+        "documentation": 100.0,
+        "regions_ready": 6,
+        "deployment_strategy": "blue-green"
+      },
+      "recommendations": [
+        "Complete end-to-end testing in staging environment",
+        "Validate disaster recovery procedures",
+        "Implement comprehensive health checks",
+        "Add automated rollback capabilities",
+        "Create operational runbooks",
+        "Set up 24/7 monitoring and alerting",
+        "Prepare incident response team",
+        "Schedule production deployment window"
+      ],
+      "execution_time": 0.00024008750915527344,
+      "timestamp": "2025-08-16 20:23:41"
+    }
+  ],
+  "execution_timestamp": "2025-08-16 20:23:41",
+  "total_execution_time": 0.10834741592407227
+}

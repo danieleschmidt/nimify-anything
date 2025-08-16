@@ -1,0 +1,30 @@
+{
+  "total_regions": 6,
+  "healthy_regions": 5,
+  "degraded_regions": 0,
+  "failed_regions": 1,
+  "overall_health": "degraded",
+  "global_availability": 99.5,
+  "average_response_time": 57.48657666007442,
+  "traffic_distribution": {
+    "ap-northeast-1": 0.16666666666666666,
+    "ap-southeast-1": 0.16666666666666666,
+    "eu-central-1": 0.16666666666666666,
+    "eu-west-1": 0.16666666666666666,
+    "us-east-1": 0.16666666666666666,
+    "us-west-2": 0.16666666666666666
+  },
+  "failover_capability": true,
+  "disaster_recovery_ready": true,
+  "compliance_status": {
+    "gdpr": true,
+    "security": true,
+    "encryption": true
+  },
+  "security_posture": "strong",
+  "recommendations": [
+    "Investigate high latency in regions: ap-southeast-1",
+    "URGENT: Health checks failing in: ap-southeast-1"
+  ],
+  "validation_summary": "Global Deployment Validation Summary\n=====================================\n\nRegions Status:\n  \u2705 Healthy: 5/6\n  \u26a0\ufe0f  Degraded: 0/6\n  \u274c Failed: 1/6\n\nRegional Details:\n  \u2705 ap-northeast-1: 87.7ms, CPU: 42.1%, Security: \u2705\n  \u274c ap-southeast-1: 102.2ms, CPU: 40.8%, Security: \u2705\n  \u2705 eu-central-1: 46.5ms, CPU: 50.7%, Security: \u2705\n  \u2705 eu-west-1: 56.1ms, CPU: 51.0%, Security: \u2705\n  \u2705 us-east-1: 21.9ms, CPU: 56.4%, Security: \u2705\n  \u2705 us-west-2: 30.5ms, CPU: 52.4%, Security: \u2705\n\nGlobal Metrics:\n  \ud83d\udcca Average Response Time: 57.5ms\n  \ud83d\udcc8 Global Availability: 99.5%\n  \ud83d\udd12 Security Posture: Strong\n  \ud83c\udf0d GDPR Compliance: \u2705"
+}
