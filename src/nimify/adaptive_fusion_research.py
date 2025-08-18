@@ -8,15 +8,14 @@ Research Hypothesis: Dynamic attention mechanisms can outperform static fusion
 strategies by 15-25% in cross-modal prediction tasks.
 """
 
+import logging
+import time
+from dataclasses import dataclass
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass
-import logging
-from enum import Enum
-import time
 from scipy import stats
 from sklearn.metrics import mutual_info_score
 
@@ -184,10 +183,10 @@ class AdaptiveAttentionFusion(nn.Module):
         neural_input: torch.Tensor,
         olfactory_input: torch.Tensor,
         return_attention: bool = False
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass with adaptive cross-modal fusion."""
         
-        batch_size = neural_input.size(0)
+        neural_input.size(0)
         
         # Assess signal quality
         neural_quality = self.neural_quality_net(neural_input)
@@ -285,11 +284,11 @@ class AdaptiveFusionOptimizer:
     
     def compute_research_loss(
         self,
-        outputs: Dict[str, torch.Tensor],
+        outputs: dict[str, torch.Tensor],
         targets: torch.Tensor,
         alpha: float = 0.1,
         beta: float = 0.05
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute loss with research-specific components."""
         
         # Primary prediction loss
@@ -338,7 +337,7 @@ class AdaptiveFusionOptimizer:
         neural_batch: torch.Tensor,
         olfactory_batch: torch.Tensor,
         targets: torch.Tensor
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Single training step with research metrics."""
         
         self.model.train()
@@ -396,9 +395,9 @@ class ResearchBenchmarkSuite:
     def run_comparative_study(
         self,
         adaptive_model: AdaptiveFusionFusion,
-        test_data: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
-        metrics: List[str] = None
-    ) -> Dict[str, Dict[str, float]]:
+        test_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+        metrics: list[str] = None
+    ) -> dict[str, dict[str, float]]:
         """Run comprehensive comparative study."""
         
         if metrics is None:
@@ -433,9 +432,9 @@ class ResearchBenchmarkSuite:
         self,
         model_name: str,
         model: nn.Module,
-        test_data: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
-        metrics: List[str]
-    ) -> Dict[str, float]:
+        test_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+        metrics: list[str]
+    ) -> dict[str, float]:
         """Evaluate a single model."""
         
         model.eval()
@@ -487,8 +486,8 @@ class ResearchBenchmarkSuite:
     
     def _compute_improvements(
         self, 
-        all_results: Dict[str, Dict[str, float]]
-    ) -> Dict[str, float]:
+        all_results: dict[str, dict[str, float]]
+    ) -> dict[str, float]:
         """Compute percentage improvements over baselines."""
         
         if 'adaptive_fusion' not in all_results:
@@ -593,7 +592,7 @@ def create_synthetic_research_data(
     neural_dim: int = 256,
     olfactory_dim: int = 128,
     noise_level: float = 0.1
-) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+) -> list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """Create synthetic data for research validation."""
     
     data = []

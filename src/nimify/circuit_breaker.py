@@ -1,11 +1,13 @@
 """Circuit breaker pattern for fault tolerance."""
 
-import time
 import logging
-from typing import Callable, Any, Optional, Dict
-from functools import wraps
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
+from functools import wraps
 from threading import Lock
+from typing import Any
 
 
 class CircuitState(Enum):
@@ -120,11 +122,11 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             self._on_failure()
             raise
     
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current circuit breaker status."""
         return {
             "state": self.state.value,
@@ -167,7 +169,7 @@ class GlobalCircuitBreakers:
     """Manage multiple circuit breakers globally."""
     
     def __init__(self):
-        self.breakers: Dict[str, CircuitBreaker] = {}
+        self.breakers: dict[str, CircuitBreaker] = {}
         self.lock = Lock()
     
     def get_or_create(
@@ -189,7 +191,7 @@ class GlobalCircuitBreakers:
                 )
             return self.breakers[name]
     
-    def get_all_status(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all circuit breakers."""
         return {
             name: breaker.get_status() 
@@ -205,6 +207,16 @@ class GlobalCircuitBreakers:
 
 # Global instance
 global_circuit_breakers = GlobalCircuitBreakers()
+
+
+@dataclass
+class CircuitBreakerConfig:
+    """Configuration for circuit breakers."""
+    failure_threshold: int = 5
+    timeout: float = 60.0
+    expected_exception: type = Exception
+    success_threshold: int = 3
+    name: str = "default"
 
 
 def protected_call(

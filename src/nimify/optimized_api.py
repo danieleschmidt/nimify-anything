@@ -2,24 +2,24 @@
 
 import time
 import uuid
-import asyncio
-from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, Depends
-from pydantic import BaseModel, Field
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
 import numpy as np
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pydantic import BaseModel, Field
 
-from .logging_config import setup_logging, log_performance_metric
-from .error_handling import global_error_handler, ModelError
-from .circuit_breaker import ModelInferenceCircuitBreaker, CircuitBreakerException
-from .performance_optimizer import (
-    ModelInferenceCache, IntelligentCache, global_monitor,
-    with_caching, with_performance_monitoring
-)
 from .auto_scaler import global_auto_scaler
+from .circuit_breaker import CircuitBreakerException, ModelInferenceCircuitBreaker
+from .error_handling import ModelError
+from .logging_config import log_performance_metric, setup_logging
+from .performance_optimizer import (
+    ModelInferenceCache,
+    global_monitor,
+    with_performance_monitoring,
+)
 
 # Set up logging
 logger = setup_logging("nim-service-optimized", log_level="INFO")
@@ -34,19 +34,19 @@ AUTO_SCALING_EVENTS = Counter('nim_autoscaling_events_total', 'Auto-scaling even
 
 class OptimizedPredictionRequest(BaseModel):
     """Optimized request model with caching hints."""
-    input: List[List[float]] = Field(..., description="Input data for inference", min_length=1, max_length=64)
-    cache_ttl: Optional[int] = Field(None, description="Cache TTL in seconds", ge=0, le=7200)
-    priority: Optional[str] = Field("normal", description="Request priority", pattern="^(low|normal|high)$")
+    input: list[list[float]] = Field(..., description="Input data for inference", min_length=1, max_length=64)
+    cache_ttl: int | None = Field(None, description="Cache TTL in seconds", ge=0, le=7200)
+    priority: str | None = Field("normal", description="Request priority", pattern="^(low|normal|high)$")
 
 
 class OptimizedPredictionResponse(BaseModel):
     """Optimized response model with performance metadata."""
-    predictions: List[List[float]] = Field(..., description="Model predictions")
+    predictions: list[list[float]] = Field(..., description="Model predictions")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
     request_id: str = Field(..., description="Unique request identifier")
     cache_hit: bool = Field(..., description="Whether result was served from cache")
-    performance_metrics: Dict[str, float] = Field(..., description="Performance metrics")
-    scaling_status: Dict[str, Any] = Field(..., description="Auto-scaling status")
+    performance_metrics: dict[str, float] = Field(..., description="Performance metrics")
+    scaling_status: dict[str, Any] = Field(..., description="Auto-scaling status")
 
 
 class OptimizedModelLoader:
@@ -54,7 +54,7 @@ class OptimizedModelLoader:
     
     def __init__(self, model_path: str):
         self.model_path = model_path
-        self.session: Optional[Any] = None
+        self.session: Any | None = None
         self.circuit_breaker = ModelInferenceCircuitBreaker("optimized_model")
         self.inference_cache = ModelInferenceCache("optimized_model")
         self.warmup_completed = False
@@ -90,10 +90,10 @@ class OptimizedModelLoader:
     @with_performance_monitoring(global_monitor)
     async def predict(
         self,
-        input_data: List[List[float]],
-        cache_ttl: Optional[int] = None,
+        input_data: list[list[float]],
+        cache_ttl: int | None = None,
         priority: str = "normal"
-    ) -> tuple[List[List[float]], bool]:
+    ) -> tuple[list[list[float]], bool]:
         """Optimized prediction with caching."""
         if not self.session:
             raise ModelError("Model not loaded")
@@ -126,10 +126,10 @@ class OptimizedModelLoader:
     
     async def _raw_predict(
         self,
-        input_data: List[List[float]],
+        input_data: list[list[float]],
         skip_cache: bool = False,
         priority: str = "normal"
-    ) -> List[List[float]]:
+    ) -> list[list[float]]:
         """Raw inference without caching."""
         
         def _do_inference():
@@ -162,7 +162,7 @@ class OptimizedModelLoader:
         
         return predictions
     
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def get_performance_stats(self) -> dict[str, Any]:
         """Get performance statistics."""
         cache_stats = self.inference_cache.get_stats()
         circuit_stats = self.circuit_breaker.get_status()
@@ -175,7 +175,7 @@ class OptimizedModelLoader:
 
 
 # Global state
-model_loader: Optional[OptimizedModelLoader] = None
+model_loader: OptimizedModelLoader | None = None
 service_start_time = time.time()
 request_counter = 0
 

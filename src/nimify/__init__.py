@@ -3,7 +3,7 @@
 __version__ = "0.1.0"
 __author__ = "Daniel Schmidt"
 
-from .core import Nimifier, ModelConfig, NIMService
+from .core import ModelConfig, Nimifier, NIMService
 
 __all__ = [
     "Nimifier", 

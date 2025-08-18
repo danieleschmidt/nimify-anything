@@ -1,17 +1,13 @@
 """Auto-scaling system based on load and performance metrics."""
 
-import time
-import asyncio
 import logging
-from typing import Dict, List, Optional, Callable, Any
+import threading
+import time
 from dataclasses import dataclass, field
 from enum import Enum
-import threading
-import json
+from typing import Any
 
 import numpy as np
-
-from .performance_optimizer import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +57,7 @@ class ScalingDecision:
     target_value: int
     reason: str
     confidence: float
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
 
@@ -85,7 +81,7 @@ class MetricsCollector:
             if len(self.metrics[name]) > self.window_size:
                 self.metrics[name] = self.metrics[name][-self.window_size:]
     
-    def get_metric_stats(self, name: str) -> Optional[Dict[str, float]]:
+    def get_metric_stats(self, name: str) -> dict[str, float] | None:
         """Get statistics for a metric."""
         with self.lock:
             if name not in self.metrics or not self.metrics[name]:
@@ -101,7 +97,7 @@ class MetricsCollector:
                 'trend': self._calculate_trend(values[-10:])
             }
     
-    def _calculate_trend(self, values: List[float]) -> float:
+    def _calculate_trend(self, values: list[float]) -> float:
         """Calculate trend of values (positive = increasing)."""
         if len(values) < 2:
             return 0.0
@@ -119,7 +115,7 @@ class AutoScaler:
     """Intelligent auto-scaling system."""
     
     def __init__(self):
-        self.rules: List[ScalingRule] = []
+        self.rules: list[ScalingRule] = []
         self.metrics_collector = MetricsCollector()
         self.current_resources = {
             ResourceType.REPLICAS: 2,
@@ -182,7 +178,7 @@ class AutoScaler:
         """Record a metric for scaling decisions."""
         self.metrics_collector.record_metric(name, value)
     
-    def evaluate_scaling(self) -> List[ScalingDecision]:
+    def evaluate_scaling(self) -> list[ScalingDecision]:
         """Evaluate if scaling is needed."""
         decisions = []
         current_time = time.time()
@@ -271,12 +267,12 @@ class AutoScaler:
             logger.error(f"Failed to apply scaling decision: {e}")
             return False
     
-    def get_current_resources(self) -> Dict[ResourceType, int]:
+    def get_current_resources(self) -> dict[ResourceType, int]:
         """Get current resource allocation."""
         with self.lock:
             return self.current_resources.copy()
     
-    def get_scaling_stats(self) -> Dict[str, Any]:
+    def get_scaling_stats(self) -> dict[str, Any]:
         """Get scaling statistics."""
         with self.lock:
             total_scalings = len(self.scaling_history)

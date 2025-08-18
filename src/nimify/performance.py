@@ -1,19 +1,19 @@
 """Performance optimization and monitoring utilities."""
 
 import asyncio
-import time
-import threading
-import logging
-from contextlib import asynccontextmanager
-from collections import defaultdict, deque
-from typing import Dict, List, Optional, Any, Tuple, Callable
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
-import psutil
-import numpy as np
-from cachetools import TTLCache, LRUCache
 import hashlib
-import pickle
+import logging
+import threading
+import time
+from collections import deque
+from collections.abc import Callable
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+import psutil
+from cachetools import LRUCache, TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class PerformanceMetrics:
     throughput_rps: float
     memory_usage_mb: float
     cpu_usage_percent: float
-    gpu_usage_percent: Optional[float] = None
+    gpu_usage_percent: float | None = None
     cache_hit_rate: float = 0.0
     concurrent_requests: int = 0
 
@@ -111,7 +111,7 @@ class MetricsCollector:
                 concurrent_requests=self.concurrent_requests
             )
     
-    def _get_gpu_usage(self) -> Optional[float]:
+    def _get_gpu_usage(self) -> float | None:
         """Get GPU usage if available."""
         try:
             import nvidia_ml_py3 as nvml
@@ -133,13 +133,13 @@ class ModelCache:
         self.hit_count = 0
         self.miss_count = 0
     
-    def _hash_input(self, input_data: List[List[float]]) -> str:
+    def _hash_input(self, input_data: list[list[float]]) -> str:
         """Create hash of input data for caching."""
         # Convert to numpy array for consistent hashing
         arr = np.array(input_data, dtype=np.float32)
         return hashlib.md5(arr.tobytes()).hexdigest()
     
-    def get(self, input_data: List[List[float]]) -> Optional[List[List[float]]]:
+    def get(self, input_data: list[list[float]]) -> list[list[float]] | None:
         """Get cached result for input."""
         key = self._hash_input(input_data)
         
@@ -160,7 +160,7 @@ class ModelCache:
             self.miss_count += 1
             return None
     
-    def put(self, input_data: List[List[float]], result: List[List[float]]):
+    def put(self, input_data: list[list[float]], result: list[list[float]]):
         """Cache result for input."""
         key = self._hash_input(input_data)
         
@@ -230,7 +230,7 @@ class BatchProcessor:
                 async with self.batch_condition:
                     self.processing = False
     
-    async def _process_batch(self, batch: List[Tuple[Any, asyncio.Future]], inference_func: Callable):
+    async def _process_batch(self, batch: list[tuple[Any, asyncio.Future]], inference_func: Callable):
         """Process a single batch."""
         if not batch:
             return
@@ -244,7 +244,7 @@ class BatchProcessor:
             results = await inference_func(inputs)
             
             # Distribute results
-            for i, (future, result) in enumerate(zip(futures, results)):
+            for _i, (future, result) in enumerate(zip(futures, results, strict=False)):
                 if not future.done():
                     future.set_result(result)
         
@@ -278,10 +278,7 @@ class CircuitBreaker:
                     return True
                 return False
             
-            if self.state == "HALF_OPEN":
-                return True
-            
-            return False
+            return self.state == "HALF_OPEN"
     
     def record_success(self):
         """Record successful execution."""

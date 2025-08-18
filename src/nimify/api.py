@@ -1,25 +1,27 @@
 """FastAPI application for NIM service runtime."""
 
-import asyncio
 import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
 
+import numpy as np
 import onnxruntime as ort
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.security import HTTPBearer
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, Field
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
-import numpy as np
+from fastapi.security import HTTPBearer
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pydantic import BaseModel, Field
 
-from .validation import RequestValidator, ValidationError
-from .logging_config import setup_logging, log_api_request, log_security_event, log_performance_metric
-
+from .logging_config import (
+    log_api_request,
+    log_performance_metric,
+    log_security_event,
+    setup_logging,
+)
+from .validation import ValidationError
 
 # Metrics
 REQUEST_COUNT = Counter('nim_request_count_total', 'Total requests', ['method', 'endpoint', 'status'])
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 class PredictionRequest(BaseModel):
     """Request model for predictions with validation."""
-    input: List[List[float]] = Field(..., description="Input data for inference", min_items=1, max_items=64)
+    input: list[list[float]] = Field(..., description="Input data for inference", min_items=1, max_items=64)
     
     class Config:
         schema_extra = {
@@ -47,7 +49,7 @@ class PredictionRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Response model for predictions."""
-    predictions: List[List[float]] = Field(..., description="Model predictions")
+    predictions: list[list[float]] = Field(..., description="Model predictions")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
     request_id: str = Field(..., description="Unique request identifier")
 
@@ -72,9 +74,9 @@ class ModelLoader:
     
     def __init__(self, model_path: str):
         self.model_path = model_path
-        self.session: Optional[ort.InferenceSession] = None
-        self.input_name: Optional[str] = None
-        self.output_names: Optional[List[str]] = None
+        self.session: ort.InferenceSession | None = None
+        self.input_name: str | None = None
+        self.output_names: list[str] | None = None
     
     async def load_model(self):
         """Load the ONNX model asynchronously."""
@@ -95,7 +97,7 @@ class ModelLoader:
             logger.error(f"Failed to load model {self.model_path}: {e}")
             raise
     
-    async def predict(self, input_data: List[List[float]]) -> List[List[float]]:
+    async def predict(self, input_data: list[list[float]]) -> list[list[float]]:
         """Run inference on input data."""
         if not self.session:
             raise ValueError("Model not loaded")
@@ -126,7 +128,7 @@ class ModelLoader:
 
 
 # Global state
-model_loader: Optional[ModelLoader] = None
+model_loader: ModelLoader | None = None
 service_start_time = time.time()
 
 # Security
@@ -276,7 +278,7 @@ async def predict(request: PredictionRequest, req: Request, request_id: str = De
             if len(request.input) > 64:  # Max batch size
                 raise HTTPException(status_code=422, detail="Batch size too large (max: 64)")
             
-            if not all(isinstance(row, list) and all(isinstance(val, (int, float)) for val in row) for row in request.input):
+            if not all(isinstance(row, list) and all(isinstance(val, int | float) for val in row) for row in request.input):
                 raise HTTPException(status_code=422, detail="Invalid input format: expected list of lists of numbers")
             
             # Run inference with circuit breaker protection

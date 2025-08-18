@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Simplified CLI that works without external dependencies."""
 
-import sys
-import json
 import argparse
+import sys
 from pathlib import Path
+
 from .core import ModelConfig, Nimifier
+
 
 def create_service(args):
     """Create a NIM service."""
@@ -76,7 +77,7 @@ def create_service(args):
     print(f"  1. Review the generated OpenAPI spec: {openapi_path}")
     print(f"  2. Customize the Helm chart: {helm_dir}/values.yaml")
     print(f"  3. Deploy: helm install {args.name} ./{helm_dir}")
-    print(f"  4. Test API: curl http://localhost:8000/health")
+    print("  4. Test API: curl http://localhost:8000/health")
     
     return True
 

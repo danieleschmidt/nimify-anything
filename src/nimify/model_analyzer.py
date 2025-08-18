@@ -2,8 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Union
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +10,7 @@ class ModelAnalyzer:
     """Analyzes model files to extract metadata and generate schemas."""
     
     @staticmethod
-    def analyze_onnx_model(model_path: str) -> Dict:
+    def analyze_onnx_model(model_path: str) -> dict:
         """Analyze ONNX model and extract schema information."""
         try:
             import onnx
@@ -28,7 +26,7 @@ class ModelAnalyzer:
                     if dim.dim_value:
                         shape.append(dim.dim_value)
                     elif dim.dim_param:
-                        shape.append(f"?")  # Dynamic dimension
+                        shape.append("?")  # Dynamic dimension
                     else:
                         shape.append("?")
                 
@@ -86,7 +84,7 @@ class ModelAnalyzer:
             return ModelAnalyzer._get_default_schema("onnx", model_path)
     
     @staticmethod
-    def analyze_tensorrt_model(model_path: str) -> Dict:
+    def analyze_tensorrt_model(model_path: str) -> dict:
         """Analyze TensorRT model using basic file inspection."""
         try:
             import os
@@ -121,7 +119,7 @@ class ModelAnalyzer:
             return ModelAnalyzer._get_default_schema("tensorrt", model_path)
     
     @staticmethod
-    def _get_default_schema(format_type: str, model_path: str) -> Dict:
+    def _get_default_schema(format_type: str, model_path: str) -> dict:
         """Generate default schema based on model type."""
         model_name = Path(model_path).stem
         
@@ -178,7 +176,7 @@ class ModelAnalyzer:
             return "unknown"
     
     @classmethod
-    def analyze_model(cls, model_path: str) -> Dict:
+    def analyze_model(cls, model_path: str) -> dict:
         """Main analysis function - routes to appropriate analyzer."""
         if not Path(model_path).exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
@@ -203,7 +201,7 @@ class SchemaGenerator:
     """Generates various schema formats from model analysis."""
     
     @staticmethod
-    def generate_openapi_schema(schema_info: str) -> Dict:
+    def generate_openapi_schema(schema_info: str) -> dict:
         """Convert model schema info to OpenAPI format."""
         if "float32" in schema_info:
             return {
@@ -224,7 +222,7 @@ class SchemaGenerator:
             }
     
     @staticmethod
-    def generate_triton_config(model_analysis: Dict, max_batch_size: int = 32) -> str:
+    def generate_triton_config(model_analysis: dict, max_batch_size: int = 32) -> str:
         """Generate Triton Inference Server model configuration."""
         model_name = model_analysis["model_name"]
         format_type = model_analysis["format"]
@@ -308,7 +306,7 @@ dynamic_batching {
         return config
     
     @staticmethod  
-    def analyze_pytorch_model(model_path: str) -> Dict:
+    def analyze_pytorch_model(model_path: str) -> dict:
         """Analyze PyTorch model using basic inspection."""
         try:
             import torch
@@ -345,7 +343,7 @@ dynamic_batching {
             return ModelAnalyzer._get_default_schema("pytorch", model_path)
     
     @staticmethod
-    def analyze_tensorflow_model(model_path: str) -> Dict:
+    def analyze_tensorflow_model(model_path: str) -> dict:
         """Analyze TensorFlow model using basic inspection."""
         try:
             import tensorflow as tf

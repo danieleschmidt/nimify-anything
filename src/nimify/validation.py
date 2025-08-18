@@ -1,11 +1,11 @@
 """Input validation and security utilities for bioneuro-olfactory fusion."""
 
-import re
-import os
 import hashlib
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
 import logging
+import re
+from pathlib import Path
+from typing import Any
+
 from pydantic import BaseModel, Field, validator
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class BioneuroDataValidator:
                 for chunk in iter(lambda: f.read(4096), b""):
                     hasher.update(chunk)
             return hasher.hexdigest()
-        except IOError as e:
+        except OSError as e:
             raise ValidationError(f"Cannot read file for hashing: {e}")
 
 
@@ -179,7 +179,7 @@ class SecurityValidator:
     ]
     
     @classmethod
-    def scan_for_dangerous_content(cls, content: str) -> List[str]:
+    def scan_for_dangerous_content(cls, content: str) -> list[str]:
         """Scan content for potentially dangerous patterns."""
         dangerous_matches = []
         
@@ -190,7 +190,7 @@ class SecurityValidator:
         return dangerous_matches
     
     @classmethod
-    def validate_environment_variables(cls, env_vars: Dict[str, str]) -> Dict[str, str]:
+    def validate_environment_variables(cls, env_vars: dict[str, str]) -> dict[str, str]:
         """Validate environment variables for security."""
         validated = {}
         dangerous_keys = {'PATH', 'LD_LIBRARY_PATH', 'PYTHONPATH'}
@@ -215,7 +215,7 @@ class SecurityValidator:
 class RequestValidator(BaseModel):
     """Pydantic model for validating API requests."""
     
-    input: List[List[float]] = Field(
+    input: list[list[float]] = Field(
         ..., 
         description="Input data for inference",
         min_items=1,
@@ -223,7 +223,7 @@ class RequestValidator(BaseModel):
     )
     
     @validator('input')
-    def validate_input_dimensions(cls, v):
+    def validate_input_dimensions(self, v):
         """Validate input tensor dimensions."""
         if not v:
             raise ValueError("Input cannot be empty")
@@ -237,7 +237,7 @@ class RequestValidator(BaseModel):
         # Check for NaN or infinite values
         for i, row in enumerate(v):
             for j, val in enumerate(row):
-                if not isinstance(val, (int, float)):
+                if not isinstance(val, int | float):
                     raise ValueError(f"All values must be numeric. Found {type(val)} at position [{i}][{j}]")
                 
                 import math
@@ -245,6 +245,30 @@ class RequestValidator(BaseModel):
                     raise ValueError(f"Invalid value (NaN or Inf) at position [{i}][{j}]")
         
         return v
+
+
+class ModelFileValidator:
+    """Validates model files for security and compatibility."""
+    
+    ALLOWED_EXTENSIONS = {'.onnx', '.trt', '.engine', '.plan', '.pb', '.pth', '.pt'}
+    MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024  # 5GB
+    
+    @classmethod
+    def validate_model_file(cls, file_path: str) -> Path:
+        """Validate model file."""
+        path = Path(file_path).resolve()
+        
+        if not path.exists():
+            raise ValidationError(f"Model file not found: {file_path}")
+        
+        if path.suffix.lower() not in cls.ALLOWED_EXTENSIONS:
+            raise ValidationError(f"Unsupported file extension: {path.suffix}")
+        
+        file_size = path.stat().st_size
+        if file_size > cls.MAX_FILE_SIZE:
+            raise ValidationError(f"File too large: {file_size} bytes")
+        
+        return path
 
 
 def sanitize_filename(filename: str) -> str:
@@ -285,7 +309,7 @@ class DataQualityValidator:
     """Validates data quality for bioneuro-olfactory fusion."""
     
     @staticmethod
-    def assess_neural_data_quality(neural_data: List[List[float]], sampling_rate: int) -> Dict[str, Any]:
+    def assess_neural_data_quality(neural_data: list[list[float]], sampling_rate: int) -> dict[str, Any]:
         """Assess quality of neural data."""
         import numpy as np
         
@@ -340,7 +364,7 @@ class DataQualityValidator:
         return quality_metrics
     
     @staticmethod
-    def assess_olfactory_data_quality(molecule_data: Dict[str, Any], concentration: float) -> Dict[str, Any]:
+    def assess_olfactory_data_quality(molecule_data: dict[str, Any], concentration: float) -> dict[str, Any]:
         """Assess quality of olfactory stimulus data."""
         
         quality_metrics = {

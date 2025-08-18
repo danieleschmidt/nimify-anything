@@ -1,9 +1,7 @@
 """Logging configuration for NIM services."""
 
 import logging
-import json
 import time
-from typing import Optional, Dict, Any
 
 
 def setup_logging(service_name: str, log_level: str = "INFO", enable_audit: bool = True):
@@ -24,9 +22,9 @@ def log_api_request(
     endpoint: str, 
     status_code: int, 
     duration_ms: float,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
-    request_id: Optional[str] = None
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    request_id: str | None = None
 ):
     """Log API request with structured format."""
     logger = logging.getLogger("nim-service")
@@ -51,8 +49,8 @@ def log_api_request(
 def log_security_event(
     event_type: str,
     message: str,
-    ip_address: Optional[str] = None,
-    request_id: Optional[str] = None,
+    ip_address: str | None = None,
+    request_id: str | None = None,
     **kwargs
 ):
     """Log security-related events."""

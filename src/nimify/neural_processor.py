@@ -1,10 +1,11 @@
 """Neural signal processing module for bioneuro-olfactory fusion."""
 
-import numpy as np
-from scipy import signal, fft
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+from scipy import signal
 
 from .core import NeuralConfig, NeuralSignalType
 
@@ -22,7 +23,7 @@ class NeuralFeatures:
     
     # Frequency domain features
     dominant_frequency: float
-    spectral_power: Dict[str, float]  # alpha, beta, gamma, etc.
+    spectral_power: dict[str, float]  # alpha, beta, gamma, etc.
     spectral_entropy: float
     
     # Time-frequency features
@@ -30,8 +31,8 @@ class NeuralFeatures:
     coherence_map: np.ndarray
     
     # Spatial features (for multi-channel data)
-    spatial_patterns: Optional[np.ndarray] = None
-    channel_connectivity: Optional[np.ndarray] = None
+    spatial_patterns: np.ndarray | None = None
+    channel_connectivity: np.ndarray | None = None
 
 
 class NeuralSignalProcessor:
@@ -41,7 +42,7 @@ class NeuralSignalProcessor:
         self.config = config
         self.filters = self._setup_filters()
     
-    def _setup_filters(self) -> Dict[str, Any]:
+    def _setup_filters(self) -> dict[str, Any]:
         """Setup preprocessing filters based on signal type."""
         filters = {}
         
@@ -75,8 +76,8 @@ class NeuralSignalProcessor:
     def process(
         self, 
         neural_data: np.ndarray, 
-        timestamps: Optional[np.ndarray] = None
-    ) -> Dict[str, Any]:
+        timestamps: np.ndarray | None = None
+    ) -> dict[str, Any]:
         """
         Main processing pipeline for neural signals.
         
@@ -143,7 +144,7 @@ class NeuralSignalProcessor:
         
         return processed_data
     
-    def _apply_bandpass_filter(self, data: np.ndarray, freq_range: Tuple[float, float]) -> np.ndarray:
+    def _apply_bandpass_filter(self, data: np.ndarray, freq_range: tuple[float, float]) -> np.ndarray:
         """Apply bandpass filter to data."""
         nyquist = self.config.sampling_rate / 2
         low, high = freq_range[0] / nyquist, freq_range[1] / nyquist
@@ -188,7 +189,7 @@ class NeuralSignalProcessor:
         # Extract power in different frequency bands
         spectral_power = {}
         for band_name, (low_freq, high_freq) in self.filters.items():
-            if isinstance(low_freq, (int, float)) and isinstance(high_freq, (int, float)):
+            if isinstance(low_freq, int | float) and isinstance(high_freq, int | float):
                 band_mask = (freqs >= low_freq) & (freqs <= high_freq)
                 if np.any(band_mask):
                     spectral_power[band_name] = np.mean(psd[:, band_mask])
@@ -281,7 +282,7 @@ class NeuralSignalProcessor:
         correlation_matrix = np.corrcoef(data)
         return correlation_matrix
     
-    def _remove_artifacts(self, data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _remove_artifacts(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Detect and remove artifacts from neural data."""
         # Simple artifact detection based on amplitude thresholds
         amplitude_threshold = 5 * np.std(data)  # 5 sigma threshold
@@ -306,7 +307,7 @@ class NeuralSignalProcessor:
         
         return clean_data, artifact_mask
     
-    def _assess_signal_quality(self, data: np.ndarray) -> Dict[str, float]:
+    def _assess_signal_quality(self, data: np.ndarray) -> dict[str, float]:
         """Assess overall signal quality metrics."""
         signal_to_noise_ratio = np.mean(data**2) / np.var(data)
         amplitude_variability = np.std(data) / np.mean(np.abs(data))
@@ -328,7 +329,7 @@ class NeuralSignalProcessor:
         stimulus_onset_times: np.ndarray,
         pre_stimulus_window: float = 1.0,
         post_stimulus_window: float = 5.0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze neural response patterns to olfactory stimuli.
         
@@ -388,7 +389,7 @@ class NeuralSignalProcessor:
         epoch_data: np.ndarray, 
         pre_samples: int, 
         post_samples: int
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Extract features from single stimulus response epoch."""
         
         # Time-to-peak response
@@ -419,11 +420,11 @@ class NeuralSignalProcessor:
             'onset_latency': onset_latency
         }
     
-    def _aggregate_response_patterns(self, response_patterns: List[Dict]) -> Dict[str, Any]:
+    def _aggregate_response_patterns(self, response_patterns: list[dict]) -> dict[str, Any]:
         """Aggregate individual response patterns across trials."""
         aggregated = {}
         
-        for key in response_patterns[0].keys():
+        for key in response_patterns[0]:
             values = [r[key] for r in response_patterns if not np.isnan(r[key])]
             if values:
                 aggregated[key] = {
@@ -436,7 +437,7 @@ class NeuralSignalProcessor:
         
         return aggregated
     
-    def _compute_response_consistency(self, response_patterns: List[Dict]) -> float:
+    def _compute_response_consistency(self, response_patterns: list[dict]) -> float:
         """Compute consistency of responses across trials."""
         if len(response_patterns) < 2:
             return 1.0

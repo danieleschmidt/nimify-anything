@@ -1,15 +1,15 @@
 """Performance optimization and caching system."""
 
-import time
-import asyncio
-import threading
 import hashlib
-from typing import Any, Dict, List, Optional, Callable, Tuple
-from dataclasses import dataclass, field
-from collections import OrderedDict
-from functools import wraps
 import json
 import logging
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Callable
+from dataclasses import dataclass
+from functools import wraps
+from typing import Any
 
 import numpy as np
 
@@ -57,8 +57,8 @@ class IntelligentCache:
     def _estimate_size(self, value: Any) -> int:
         """Estimate memory size of value."""
         try:
-            if isinstance(value, (list, tuple)):
-                if value and isinstance(value[0], (int, float)):
+            if isinstance(value, list | tuple):
+                if value and isinstance(value[0], int | float):
                     # Numeric data - use NumPy estimation
                     array = np.array(value)
                     return array.nbytes
@@ -85,7 +85,7 @@ class IntelligentCache:
                 
                 logger.debug(f"Evicted cache entry: {key}")
     
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get value from cache."""
         with self._lock:
             if key in self._cache:
@@ -107,7 +107,7 @@ class IntelligentCache:
             self._misses += 1
             return None
     
-    def put(self, key: str, value: Any, ttl: Optional[float] = None) -> bool:
+    def put(self, key: str, value: Any, ttl: float | None = None) -> bool:
         """Put value in cache."""
         if ttl is None:
             ttl = self.default_ttl
@@ -140,7 +140,7 @@ class IntelligentCache:
             
             return True
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         with self._lock:
             total_requests = self._hits + self._misses
@@ -161,7 +161,7 @@ class IntelligentCache:
 def cache_key_from_input(input_data: Any) -> str:
     """Generate cache key from input data."""
     # Convert to hashable representation
-    if isinstance(input_data, (list, tuple)):
+    if isinstance(input_data, list | tuple):
         # For numeric data, create hash from array
         try:
             array = np.array(input_data, dtype=np.float32)
@@ -188,21 +188,21 @@ class ModelInferenceCache:
             default_ttl=7200.0  # 2 hours for inference results
         )
     
-    def get_prediction(self, input_data: List[List[float]]) -> Optional[List[List[float]]]:
+    def get_prediction(self, input_data: list[list[float]]) -> list[list[float]] | None:
         """Get cached prediction."""
         cache_key = cache_key_from_input(input_data)
         return self.cache.get(cache_key)
     
     def cache_prediction(
         self,
-        input_data: List[List[float]],
-        predictions: List[List[float]]
+        input_data: list[list[float]],
+        predictions: list[list[float]]
     ) -> bool:
         """Cache prediction result."""
         cache_key = cache_key_from_input(input_data)
         return self.cache.put(cache_key, predictions)
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         stats = self.cache.get_stats()
         stats["model_name"] = self.model_name
@@ -216,7 +216,7 @@ class PerformanceMonitor:
         self.metrics = {}
         self._lock = threading.Lock()
     
-    def record_metric(self, name: str, value: float, labels: Dict[str, str] = None):
+    def record_metric(self, name: str, value: float, labels: dict[str, str] = None):
         """Record a performance metric."""
         with self._lock:
             if name not in self.metrics:
@@ -236,7 +236,7 @@ class PerformanceMonitor:
                 self.metrics[name]['timestamps'] = self.metrics[name]['timestamps'][-1000:]
                 self.metrics[name]['labels'] = self.metrics[name]['labels'][-1000:]
     
-    def get_metric_stats(self, name: str) -> Optional[Dict[str, float]]:
+    def get_metric_stats(self, name: str) -> dict[str, float] | None:
         """Get statistics for a metric."""
         with self._lock:
             if name not in self.metrics or not self.metrics[name]['values']:
@@ -256,12 +256,12 @@ class PerformanceMonitor:
                 'max': np.max(recent_values)
             }
     
-    def get_all_stats(self) -> Dict[str, Dict[str, float]]:
+    def get_all_stats(self) -> dict[str, dict[str, float]]:
         """Get statistics for all metrics."""
         return {name: self.get_metric_stats(name) for name in self.metrics}
 
 
-def with_caching(cache: IntelligentCache, ttl: Optional[float] = None):
+def with_caching(cache: IntelligentCache, ttl: float | None = None):
     """Decorator to add caching to a function."""
     
     def decorator(func: Callable):
