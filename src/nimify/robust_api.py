@@ -2,29 +2,30 @@
 
 import time
 import uuid
-import logging
-from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.security import HTTPBearer
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, Field
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
 import numpy as np
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pydantic import BaseModel, Field
 
-from .logging_config import setup_logging, log_api_request, log_security_event, log_performance_metric
-from .error_handling import (
-    global_error_handler, with_error_handling, ValidationError as ValidError,
-    ModelError, SecurityError, InfrastructureError, ErrorSeverity
-)
 from .circuit_breaker import (
-    ModelInferenceCircuitBreaker, CircuitBreakerException,
-    global_circuit_breakers
+    CircuitBreakerException,
+    ModelInferenceCircuitBreaker,
+    global_circuit_breakers,
 )
-
+from .error_handling import (
+    ErrorSeverity,
+    ModelError,
+    global_error_handler,
+    with_error_handling,
+)
+from .logging_config import (
+    log_performance_metric,
+    setup_logging,
+)
 
 # Set up logging
 logger = setup_logging("nim-service-robust", log_level="INFO", enable_audit=True)
@@ -38,12 +39,12 @@ ERROR_COUNT = Counter('nim_robust_error_count_total', 'Total errors', ['error_ty
 
 class PredictionRequest(BaseModel):
     """Enhanced request model with validation."""
-    input: List[List[float]] = Field(..., description="Input data for inference", min_length=1, max_length=64)
+    input: list[list[float]] = Field(..., description="Input data for inference", min_length=1, max_length=64)
 
 
 class PredictionResponse(BaseModel):
     """Enhanced response model with metadata."""
-    predictions: List[List[float]] = Field(..., description="Model predictions")
+    predictions: list[list[float]] = Field(..., description="Model predictions")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
     request_id: str = Field(..., description="Unique request identifier")
     model_version: str = Field("1.0.0", description="Model version")
@@ -56,8 +57,8 @@ class HealthResponse(BaseModel):
     model_loaded: bool = Field(..., description="Whether model is loaded")
     version: str = Field(..., description="Service version")
     uptime_seconds: float = Field(..., description="Service uptime in seconds")
-    circuit_breakers: Dict[str, str] = Field(..., description="Circuit breaker states")
-    error_counts: Dict[str, int] = Field(..., description="Error statistics")
+    circuit_breakers: dict[str, str] = Field(..., description="Circuit breaker states")
+    error_counts: dict[str, int] = Field(..., description="Error statistics")
 
 
 class ErrorResponse(BaseModel):
@@ -67,7 +68,7 @@ class ErrorResponse(BaseModel):
     request_id: str = Field(..., description="Request identifier")
     timestamp: float = Field(..., description="Error timestamp")
     severity: str = Field(..., description="Error severity")
-    recovery_suggestions: Optional[str] = Field(None, description="Recovery suggestions")
+    recovery_suggestions: str | None = Field(None, description="Recovery suggestions")
 
 
 class RobustModelLoader:
@@ -75,9 +76,9 @@ class RobustModelLoader:
     
     def __init__(self, model_path: str):
         self.model_path = model_path
-        self.session: Optional[Any] = None
-        self.input_name: Optional[str] = None
-        self.output_names: Optional[List[str]] = None
+        self.session: Any | None = None
+        self.input_name: str | None = None
+        self.output_names: list[str] | None = None
         self.circuit_breaker = ModelInferenceCircuitBreaker("primary_model")
         self.fallback_available = False
     
@@ -99,7 +100,7 @@ class RobustModelLoader:
                 recovery_suggestions="Check model file format and permissions"
             )
     
-    async def predict(self, input_data: List[List[float]]) -> List[List[float]]:
+    async def predict(self, input_data: list[list[float]]) -> list[list[float]]:
         """Run inference with circuit breaker protection."""
         if not self.session:
             raise ModelError("Model not loaded")
@@ -136,7 +137,7 @@ class RobustModelLoader:
                 recovery_suggestions="Check input format and model compatibility"
             )
     
-    async def _fallback_predict(self, input_data: List[List[float]]) -> List[List[float]]:
+    async def _fallback_predict(self, input_data: list[list[float]]) -> list[list[float]]:
         """Fallback prediction when circuit breaker is open."""
         # Simple fallback: return zeros or last known good prediction
         input_array = np.array(input_data, dtype=np.float32)
@@ -144,7 +145,7 @@ class RobustModelLoader:
 
 
 # Global state
-model_loader: Optional[RobustModelLoader] = None
+model_loader: RobustModelLoader | None = None
 service_start_time = time.time()
 
 
@@ -197,7 +198,6 @@ async def predict(
     """Enhanced prediction endpoint with comprehensive error handling."""
     REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="start").inc()
     
-    client_ip = req.client.host if req.client else "unknown"
     
     if not model_loader or not model_loader.session:
         ERROR_COUNT.labels(error_type="model_not_loaded", endpoint="/v1/predict").inc()
@@ -225,7 +225,7 @@ async def predict(
                 predictions = await model_loader.predict(request.input)
                 inference_time_ms = (time.time() - start_time) * 1000
                 
-            except CircuitBreakerException as e:
+            except CircuitBreakerException:
                 ERROR_COUNT.labels(error_type="circuit_breaker_open", endpoint="/v1/predict").inc()
                 
                 raise HTTPException(
@@ -284,11 +284,7 @@ async def health_check():
     
     # Determine overall status
     status = "healthy"
-    if not model_loaded:
-        status = "degraded"
-    elif any(state == "open" for state in cb_states.values()):
-        status = "degraded"
-    elif sum(error_stats.values()) > 100:  # Threshold for too many errors
+    if not model_loaded or any(state == "open" for state in cb_states.values()) or sum(error_stats.values()) > 100:
         status = "degraded"
     
     return HealthResponse(

@@ -1,16 +1,18 @@
 """Advanced monitoring and observability system."""
 
 import asyncio
+import contextlib
 import json
 import logging
+import threading
 import time
 from collections import defaultdict, deque
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-import threading
+from typing import Any
+
 import psutil
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ class MetricPoint:
     name: str
     value: float
     timestamp: float
-    tags: Dict[str, str]
+    tags: dict[str, str]
     unit: str = ""
 
 
@@ -29,7 +31,7 @@ class MetricPoint:
 class Alert:
     """Alert configuration and state."""
     name: str
-    condition: Callable[[Dict[str, float]], bool]
+    condition: Callable[[dict[str, float]], bool]
     message: str
     severity: str = "warning"  # info, warning, critical
     cooldown_seconds: int = 300
@@ -42,25 +44,25 @@ class MetricsCollector:
     
     def __init__(self, max_points: int = 10000):
         self.max_points = max_points
-        self.metrics: Dict[str, deque] = defaultdict(lambda: deque(maxlen=max_points))
-        self.counters: Dict[str, float] = defaultdict(float)
-        self.gauges: Dict[str, float] = defaultdict(float)
-        self.histograms: Dict[str, List[float]] = defaultdict(list)
+        self.metrics: dict[str, deque] = defaultdict(lambda: deque(maxlen=max_points))
+        self.counters: dict[str, float] = defaultdict(float)
+        self.gauges: dict[str, float] = defaultdict(float)
+        self.histograms: dict[str, list[float]] = defaultdict(list)
         self._lock = threading.RLock()
     
-    def record_counter(self, name: str, value: float = 1.0, tags: Dict[str, str] = None):
+    def record_counter(self, name: str, value: float = 1.0, tags: dict[str, str] = None):
         """Record a counter metric (monotonically increasing)."""
         with self._lock:
             self.counters[name] += value
             self._record_point(name, value, tags, "count")
     
-    def record_gauge(self, name: str, value: float, tags: Dict[str, str] = None):
+    def record_gauge(self, name: str, value: float, tags: dict[str, str] = None):
         """Record a gauge metric (point-in-time value)."""
         with self._lock:
             self.gauges[name] = value
             self._record_point(name, value, tags, "gauge")
     
-    def record_histogram(self, name: str, value: float, tags: Dict[str, str] = None):
+    def record_histogram(self, name: str, value: float, tags: dict[str, str] = None):
         """Record a histogram metric (for latency, sizes, etc.)."""
         with self._lock:
             self.histograms[name].append(value)
@@ -69,7 +71,7 @@ class MetricsCollector:
                 self.histograms[name] = self.histograms[name][-1000:]
             self._record_point(name, value, tags, "histogram")
     
-    def _record_point(self, name: str, value: float, tags: Dict[str, str], unit: str):
+    def _record_point(self, name: str, value: float, tags: dict[str, str], unit: str):
         """Record a metric point."""
         point = MetricPoint(
             name=name,
@@ -90,7 +92,7 @@ class MetricsCollector:
         with self._lock:
             return self.gauges.get(name, 0.0)
     
-    def get_histogram_stats(self, name: str) -> Dict[str, float]:
+    def get_histogram_stats(self, name: str) -> dict[str, float]:
         """Get histogram statistics."""
         with self._lock:
             values = self.histograms.get(name, [])
@@ -112,7 +114,7 @@ class MetricsCollector:
                 'p99': sorted_values[int(0.99 * n)]
             }
     
-    def get_recent_metrics(self, name: str, duration_seconds: int = 60) -> List[MetricPoint]:
+    def get_recent_metrics(self, name: str, duration_seconds: int = 60) -> list[MetricPoint]:
         """Get recent metrics within duration."""
         with self._lock:
             now = time.time()
@@ -170,10 +172,8 @@ class SystemMonitor:
         self.monitoring_active = False
         if self._monitor_task:
             self._monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitor_task
-            except asyncio.CancelledError:
-                pass
         logger.info("Stopped system monitoring")
     
     async def _monitor_loop(self, interval_seconds: int):
@@ -247,8 +247,8 @@ class AlertManager:
     
     def __init__(self, metrics_collector: MetricsCollector):
         self.metrics_collector = metrics_collector
-        self.alerts: Dict[str, Alert] = {}
-        self.alert_history: List[Dict[str, Any]] = []
+        self.alerts: dict[str, Alert] = {}
+        self.alert_history: list[dict[str, Any]] = []
         self.max_history = 1000
         self._check_task = None
         self.checking_active = False
@@ -278,10 +278,8 @@ class AlertManager:
         self.checking_active = False
         if self._check_task:
             self._check_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._check_task
-            except asyncio.CancelledError:
-                pass
         logger.info("Stopped alert checking")
     
     async def _check_loop(self, interval_seconds: int):
@@ -326,7 +324,7 @@ class AlertManager:
             except Exception as e:
                 logger.error(f"Error checking alert {alert_name}: {e}")
     
-    async def _trigger_alert(self, alert: Alert, metrics: Dict[str, float]):
+    async def _trigger_alert(self, alert: Alert, metrics: dict[str, float]):
         """Trigger an alert."""
         alert.active = True
         alert.last_triggered = time.time()
@@ -369,7 +367,7 @@ class AlertManager:
         
         await self._send_notification(alert_event)
     
-    async def _send_notification(self, alert_event: Dict[str, Any]):
+    async def _send_notification(self, alert_event: dict[str, Any]):
         """Send alert notification (placeholder for integration)."""
         # In a real implementation, this would send notifications via:
         # - Email
@@ -378,7 +376,7 @@ class AlertManager:
         # - Webhook
         logger.info(f"NOTIFICATION: {alert_event['status'].upper()} - {alert_event['name']}")
     
-    def get_active_alerts(self) -> List[Dict[str, Any]]:
+    def get_active_alerts(self) -> list[dict[str, Any]]:
         """Get all active alerts."""
         active = []
         for alert in self.alerts.values():
@@ -391,7 +389,7 @@ class AlertManager:
                 })
         return active
     
-    def get_alert_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_alert_history(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get recent alert history."""
         return self.alert_history[-limit:]
 
@@ -402,7 +400,7 @@ class DashboardGenerator:
     def __init__(self, metrics_collector: MetricsCollector):
         self.metrics_collector = metrics_collector
     
-    def generate_grafana_dashboard(self) -> Dict[str, Any]:
+    def generate_grafana_dashboard(self) -> dict[str, Any]:
         """Generate Grafana dashboard JSON."""
         dashboard = {
             "dashboard": {
@@ -427,7 +425,7 @@ class DashboardGenerator:
         }
         return dashboard
     
-    def _create_requests_panel(self) -> Dict[str, Any]:
+    def _create_requests_panel(self) -> dict[str, Any]:
         """Create requests per second panel."""
         return {
             "id": 1,
@@ -445,7 +443,7 @@ class DashboardGenerator:
             "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
         }
     
-    def _create_latency_panel(self) -> Dict[str, Any]:
+    def _create_latency_panel(self) -> dict[str, Any]:
         """Create latency percentiles panel."""
         return {
             "id": 2,
@@ -471,7 +469,7 @@ class DashboardGenerator:
             "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
         }
     
-    def _create_system_panel(self) -> Dict[str, Any]:
+    def _create_system_panel(self) -> dict[str, Any]:
         """Create system metrics panel."""
         return {
             "id": 3,
@@ -493,7 +491,7 @@ class DashboardGenerator:
             "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
         }
     
-    def _create_errors_panel(self) -> Dict[str, Any]:
+    def _create_errors_panel(self) -> dict[str, Any]:
         """Create error rate panel."""
         return {
             "id": 4,
@@ -520,7 +518,7 @@ class DashboardGenerator:
 
 
 # Default alert configurations
-def create_default_alerts() -> List[Alert]:
+def create_default_alerts() -> list[Alert]:
     """Create default alert configurations."""
     alerts = [
         Alert(

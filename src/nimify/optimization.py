@@ -1,17 +1,15 @@
 """Advanced optimization and auto-scaling capabilities."""
 
 import asyncio
-import time
-import threading
+import contextlib
 import logging
-from typing import Dict, List, Optional, Any, Callable, Tuple
+import threading
+import time
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from collections import deque, defaultdict
 from enum import Enum
-import hashlib
-import pickle
-import json
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +30,7 @@ class PerformanceTarget:
     max_cpu_utilization: float = 80.0
     max_memory_utilization: float = 85.0
     max_gpu_utilization: float = 90.0
-    cost_budget_usd_per_hour: Optional[float] = None
+    cost_budget_usd_per_hour: float | None = None
 
 
 @dataclass
@@ -56,7 +54,7 @@ class ModelOptimizer:
         self.current_optimizations = {}
         self._lock = threading.Lock()
     
-    async def optimize_model_loading(self, model_path: str) -> Dict[str, Any]:
+    async def optimize_model_loading(self, model_path: str) -> dict[str, Any]:
         """Optimize model loading performance."""
         optimizations = {}
         
@@ -79,7 +77,7 @@ class ModelOptimizer:
         logger.info(f"Applied model optimizations: {list(optimizations.keys())}")
         return optimizations
     
-    async def _optimize_onnx_loading(self, model_path: str) -> Dict[str, Any]:
+    async def _optimize_onnx_loading(self, model_path: str) -> dict[str, Any]:
         """Optimize ONNX model loading."""
         optimizations = {}
         
@@ -120,7 +118,7 @@ class ModelOptimizer:
         
         return optimizations
     
-    async def _optimize_tensorrt_loading(self, model_path: str) -> Dict[str, Any]:
+    async def _optimize_tensorrt_loading(self, model_path: str) -> dict[str, Any]:
         """Optimize TensorRT model loading."""
         optimizations = {}
         
@@ -142,7 +140,7 @@ class ModelOptimizer:
         
         return optimizations
     
-    async def _optimize_memory_layout(self) -> Dict[str, Any]:
+    async def _optimize_memory_layout(self) -> dict[str, Any]:
         """Optimize memory layout for better performance."""
         return {
             'memory_optimization': {
@@ -153,7 +151,7 @@ class ModelOptimizer:
             }
         }
     
-    async def _optimize_compilation(self) -> Dict[str, Any]:
+    async def _optimize_compilation(self) -> dict[str, Any]:
         """Optimize model compilation."""
         return {
             'compilation_optimization': {
@@ -164,7 +162,7 @@ class ModelOptimizer:
             }
         }
     
-    def get_optimization_recommendations(self, performance_metrics: Dict[str, float]) -> List[Dict[str, Any]]:
+    def get_optimization_recommendations(self, performance_metrics: dict[str, float]) -> list[dict[str, Any]]:
         """Get optimization recommendations based on performance metrics."""
         recommendations = []
         
@@ -220,7 +218,7 @@ class CacheOptimizer:
         self.optimization_configs = {}
         self._lock = threading.Lock()
     
-    def analyze_cache_performance(self, cache_stats: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_cache_performance(self, cache_stats: dict[str, Any]) -> dict[str, Any]:
         """Analyze cache performance and suggest optimizations."""
         analysis = {}
         
@@ -259,7 +257,7 @@ class CacheOptimizer:
         
         return analysis
     
-    def _analyze_access_patterns(self) -> Dict[str, Any]:
+    def _analyze_access_patterns(self) -> dict[str, Any]:
         """Analyze cache access patterns for optimization."""
         with self._lock:
             total_accesses = sum(self.cache_analytics['access_frequency'].values())
@@ -293,7 +291,7 @@ class CacheOptimizer:
                     'distribution': 'varied'
                 }
     
-    def optimize_cache_configuration(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
+    def optimize_cache_configuration(self, analysis: dict[str, Any]) -> dict[str, Any]:
         """Generate optimized cache configuration."""
         config = {
             'cache_policy': 'lru',  # Default
@@ -353,7 +351,7 @@ class BatchOptimizer:
         self.batch_analytics['latency_by_size'][batch_size].append(latency_ms)
         self.batch_analytics['throughput_by_size'][batch_size].append(throughput_rps)
     
-    def analyze_batch_performance(self) -> Dict[str, Any]:
+    def analyze_batch_performance(self) -> dict[str, Any]:
         """Analyze batch performance and find optimal configurations."""
         analysis = {}
         
@@ -405,7 +403,7 @@ class BatchOptimizer:
         
         return optimal_size
     
-    def _analyze_latency_patterns(self) -> Dict[str, Any]:
+    def _analyze_latency_patterns(self) -> dict[str, Any]:
         """Analyze latency patterns across batch sizes."""
         patterns = {}
         
@@ -426,7 +424,7 @@ class BatchOptimizer:
         
         return patterns
     
-    def _analyze_throughput_patterns(self) -> Dict[str, Any]:
+    def _analyze_throughput_patterns(self) -> dict[str, Any]:
         """Analyze throughput patterns across batch sizes."""
         patterns = {}
         
@@ -442,7 +440,7 @@ class BatchOptimizer:
         
         return patterns
     
-    def _calculate_variance(self, values: List[float]) -> float:
+    def _calculate_variance(self, values: list[float]) -> float:
         """Calculate variance of a list of values."""
         if len(values) < 2:
             return 0.0
@@ -451,7 +449,7 @@ class BatchOptimizer:
         variance = sum((x - mean) ** 2 for x in values) / (len(values) - 1)
         return variance
     
-    def _generate_batch_recommendations(self, analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _generate_batch_recommendations(self, analysis: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate batching optimization recommendations."""
         recommendations = []
         
@@ -495,7 +493,7 @@ class AutoScaler:
         self.scaling_cooldown_seconds = 300  # 5 minutes
         self._lock = threading.Lock()
     
-    async def evaluate_scaling_decision(self, metrics: Dict[str, float]) -> Optional[Dict[str, Any]]:
+    async def evaluate_scaling_decision(self, metrics: dict[str, float]) -> dict[str, Any] | None:
         """Evaluate if scaling is needed and return scaling decision."""
         if not self.config.enable_auto_scaling:
             return None
@@ -604,7 +602,7 @@ class AutoScaler:
         
         return min(score, 1.0)
     
-    def _generate_scaling_reasoning(self, direction: str, metrics: Dict[str, float]) -> str:
+    def _generate_scaling_reasoning(self, direction: str, metrics: dict[str, float]) -> str:
         """Generate human-readable reasoning for scaling decision."""
         reasons = []
         
@@ -660,10 +658,8 @@ class OptimizationEngine:
         self.optimization_active = False
         if self._optimization_task:
             self._optimization_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._optimization_task
-            except asyncio.CancelledError:
-                pass
         logger.info("Stopped optimization engine")
     
     async def _optimization_loop(self):
@@ -716,7 +712,7 @@ class OptimizationEngine:
         
         return optimizations_applied
     
-    async def _collect_metrics(self) -> Dict[str, float]:
+    async def _collect_metrics(self) -> dict[str, float]:
         """Collect current performance metrics."""
         # In a real implementation, this would collect from monitoring system
         # For now, return simulated metrics
@@ -732,7 +728,7 @@ class OptimizationEngine:
             'error_rate': random.uniform(0, 0.05)
         }
     
-    async def _optimize_model_performance(self, metrics: Dict[str, float]) -> List[Dict[str, Any]]:
+    async def _optimize_model_performance(self, metrics: dict[str, float]) -> list[dict[str, Any]]:
         """Optimize model performance based on metrics."""
         recommendations = self.model_optimizer.get_optimization_recommendations(metrics)
         applied_optimizations = []
@@ -747,7 +743,7 @@ class OptimizationEngine:
         
         return applied_optimizations
     
-    async def _optimize_caching(self, metrics: Dict[str, float]) -> List[Dict[str, Any]]:
+    async def _optimize_caching(self, metrics: dict[str, float]) -> list[dict[str, Any]]:
         """Optimize caching based on performance metrics."""
         cache_stats = {
             'hit_rate': metrics.get('cache_hit_rate', 0.5),
@@ -769,10 +765,10 @@ class OptimizationEngine:
         
         return applied_optimizations
     
-    async def _optimize_batching(self, metrics: Dict[str, float]) -> List[Dict[str, Any]]:
+    async def _optimize_batching(self, metrics: dict[str, float]) -> list[dict[str, Any]]:
         """Optimize batching based on performance metrics."""
         # Simulate some batch analytics
-        for i in range(5):
+        for _i in range(5):
             batch_size = random.choice([1, 2, 4, 8, 16, 32])
             latency = random.uniform(50, 200)
             throughput = random.uniform(10, 100)
@@ -793,7 +789,7 @@ class OptimizationEngine:
         
         return applied_optimizations
     
-    def get_optimization_status(self) -> Dict[str, Any]:
+    def get_optimization_status(self) -> dict[str, Any]:
         """Get current optimization status."""
         return {
             'active': self.optimization_active,

@@ -1,11 +1,14 @@
 """Comprehensive error handling and recovery mechanisms."""
 
+import builtins
+import contextlib
 import logging
-import traceback
 import time
-from typing import Any, Dict, Optional, Callable
-from functools import wraps
+import traceback
+from collections.abc import Callable
 from enum import Enum
+from functools import wraps
+from typing import Any
 
 
 class ErrorSeverity(Enum):
@@ -34,8 +37,8 @@ class NimifyError(Exception):
         message: str,
         category: ErrorCategory,
         severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-        details: Optional[Dict[str, Any]] = None,
-        recovery_suggestions: Optional[str] = None
+        details: dict[str, Any] | None = None,
+        recovery_suggestions: str | None = None
     ):
         super().__init__(message)
         self.message = message
@@ -45,7 +48,7 @@ class NimifyError(Exception):
         self.recovery_suggestions = recovery_suggestions
         self.timestamp = time.time()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert error to dictionary for logging/serialization."""
         return {
             "error_type": self.__class__.__name__,
@@ -121,7 +124,7 @@ class InfrastructureError(NimifyError):
 class ErrorHandler:
     """Centralized error handling with recovery mechanisms."""
     
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger | None = None):
         self.logger = logger or logging.getLogger(__name__)
         self.error_counts = {}
         self.recovery_strategies = {}
@@ -137,9 +140,9 @@ class ErrorHandler:
     def handle_error(
         self,
         error: Exception,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         attempt_recovery: bool = True
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Handle error with optional recovery attempt."""
         context = context or {}
         
@@ -171,7 +174,7 @@ class ErrorHandler:
         
         return None
     
-    def get_error_stats(self) -> Dict[str, int]:
+    def get_error_stats(self) -> dict[str, int]:
         """Get error statistics."""
         return self.error_counts.copy()
 
@@ -179,7 +182,7 @@ class ErrorHandler:
 def with_error_handling(
     error_handler: ErrorHandler,
     reraise_on_failure: bool = True,
-    context_provider: Optional[Callable] = None
+    context_provider: Callable | None = None
 ):
     """Decorator for automatic error handling."""
     
@@ -191,10 +194,8 @@ def with_error_handling(
             except Exception as e:
                 context = {}
                 if context_provider:
-                    try:
+                    with contextlib.suppress(builtins.BaseException):
                         context = context_provider(*args, **kwargs)
-                    except:
-                        pass
                 
                 recovery_result = error_handler.handle_error(e, context=context)
                 
@@ -261,7 +262,7 @@ global_error_handler = ErrorHandler()
 
 
 # Recovery strategies
-def model_loading_recovery(error: Exception) -> Optional[Any]:
+def model_loading_recovery(error: Exception) -> Any | None:
     """Recovery strategy for model loading errors."""
     if "CUDA" in str(error):
         logging.getLogger(__name__).info("CUDA error detected, falling back to CPU")
@@ -270,7 +271,7 @@ def model_loading_recovery(error: Exception) -> Optional[Any]:
     return None
 
 
-def infrastructure_recovery(error: Exception) -> Optional[Any]:
+def infrastructure_recovery(error: Exception) -> Any | None:
     """Recovery strategy for infrastructure errors."""
     if "connection" in str(error).lower():
         logging.getLogger(__name__).info("Connection error detected, implementing backoff")

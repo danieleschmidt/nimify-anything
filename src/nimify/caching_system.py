@@ -5,14 +5,14 @@ import hashlib
 import json
 import logging
 import pickle
+import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
+from collections import OrderedDict, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-import threading
-from collections import OrderedDict, defaultdict
-import weakref
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class CacheItem:
     accessed_at: float
     access_count: int
     size_bytes: int
-    ttl: Optional[float] = None
+    ttl: float | None = None
     compressed: bool = False
     
     @property
@@ -138,7 +138,7 @@ class CacheStats:
     def miss_rate(self) -> float:
         return 1.0 - self.hit_rate
     
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         with self.lock:
             return {
                 "hits": self.hits,
@@ -167,11 +167,11 @@ class Cache(ABC):
     """Abstract base class for cache implementations."""
     
     @abstractmethod
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         pass
     
     @abstractmethod
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         pass
     
     @abstractmethod
@@ -183,7 +183,7 @@ class Cache(ABC):
         pass
     
     @abstractmethod
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         pass
 
 
@@ -192,7 +192,7 @@ class InMemoryCache(Cache):
     
     def __init__(self, config: CacheConfig):
         self.config = config
-        self.cache: Dict[str, CacheItem] = {}
+        self.cache: dict[str, CacheItem] = {}
         self.access_order = OrderedDict()  # For LRU
         self.frequency_counter = defaultdict(int)  # For LFU
         self.stats = CacheStats()
@@ -228,7 +228,7 @@ class InMemoryCache(Cache):
         
         self._cleanup_task = asyncio.create_task(cleanup_loop())
     
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get item from cache."""
         start_time = time.time()
         
@@ -266,7 +266,7 @@ class InMemoryCache(Cache):
             
             return value
     
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set item in cache."""
         try:
             # Calculate size
@@ -384,7 +384,7 @@ class InMemoryCache(Cache):
     
     async def _cleanup_expired(self):
         """Remove expired items."""
-        current_time = time.time()
+        time.time()
         expired_keys = []
         
         with self.lock:
@@ -398,11 +398,11 @@ class InMemoryCache(Cache):
     def _calculate_size(self, value: Any) -> int:
         """Calculate approximate size of value in bytes."""
         try:
-            if isinstance(value, (str, bytes)):
+            if isinstance(value, str | bytes):
                 return len(value.encode() if isinstance(value, str) else value)
-            elif isinstance(value, (int, float)):
+            elif isinstance(value, int | float):
                 return 8
-            elif isinstance(value, (list, tuple, dict)):
+            elif isinstance(value, list | tuple | dict):
                 return len(pickle.dumps(value))
             else:
                 return len(pickle.dumps(value))
@@ -437,7 +437,7 @@ class InMemoryCache(Cache):
             logger.error(f"Decompression failed: {e}")
             return pickle.loads(compressed_value)
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         stats = self.stats.get_metrics()
         with self.lock:
@@ -484,7 +484,7 @@ class MultiLevelCache(Cache):
         
         self.stats = CacheStats()
     
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get item from cache hierarchy."""
         start_time = time.time()
         
@@ -517,7 +517,7 @@ class MultiLevelCache(Cache):
         self.stats.record_miss(time.time() - start_time)
         return None
     
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set item in cache hierarchy."""
         results = []
         
@@ -556,7 +556,7 @@ class MultiLevelCache(Cache):
         if self.l3_cache:
             await self.l3_cache.clear()
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get comprehensive stats from all levels."""
         stats = {
             "multi_level": {
@@ -586,7 +586,7 @@ class RedisCache(Cache):
         except ImportError:
             raise Exception("Redis library not available")
     
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get item from Redis."""
         start_time = time.time()
         
@@ -606,7 +606,7 @@ class RedisCache(Cache):
             self.stats.record_miss(time.time() - start_time)
             return None
     
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set item in Redis."""
         try:
             # Serialize
@@ -640,7 +640,7 @@ class RedisCache(Cache):
         except Exception as e:
             logger.error(f"Redis clear failed: {e}")
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get Redis cache stats."""
         return self.stats.get_metrics()
 
@@ -652,13 +652,13 @@ class DiskCache(Cache):
         self.config = config
         self.stats = CacheStats()
         
-        import tempfile
         import os
+        import tempfile
         
         self.cache_dir = os.path.join(tempfile.gettempdir(), "nimify_cache")
         os.makedirs(self.cache_dir, exist_ok=True)
     
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get item from disk."""
         start_time = time.time()
         
@@ -687,7 +687,7 @@ class DiskCache(Cache):
             self.stats.record_miss(time.time() - start_time)
             return None
     
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set item on disk."""
         try:
             file_path = self._get_file_path(key)
@@ -738,7 +738,7 @@ class DiskCache(Cache):
         except:
             return True
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get disk cache stats."""
         stats = self.stats.get_metrics()
         
@@ -773,16 +773,16 @@ class CacheManager:
             self.cache = InMemoryCache(config)
         
         # Cache for function results
-        self.function_cache: Dict[str, Any] = {}
-        self.cache_decorators: Dict[str, Callable] = {}
+        self.function_cache: dict[str, Any] = {}
+        self.cache_decorators: dict[str, Callable] = {}
         
         logger.info(f"Cache manager initialized with strategy: {config.strategy.value}")
     
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get item from cache."""
         return await self.cache.get(key)
     
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set item in cache."""
         return await self.cache.set(key, value, ttl)
     
@@ -794,7 +794,7 @@ class CacheManager:
         """Clear cache."""
         await self.cache.clear()
     
-    def cached(self, ttl: Optional[int] = None, key_func: Optional[Callable] = None):
+    def cached(self, ttl: int | None = None, key_func: Callable | None = None):
         """Decorator for caching function results."""
         def decorator(func: Callable):
             async def async_wrapper(*args, **kwargs):
@@ -849,14 +849,14 @@ class CacheManager:
         key_str = json.dumps(key_data, sort_keys=True, default=str)
         return hashlib.sha256(key_str.encode()).hexdigest()
     
-    async def warm_up(self, warm_up_data: Dict[str, Any]):
+    async def warm_up(self, warm_up_data: dict[str, Any]):
         """Pre-populate cache with frequently accessed data."""
         logger.info(f"Warming up cache with {len(warm_up_data)} items")
         
         for key, value in warm_up_data.items():
             await self.set(key, value)
     
-    async def bulk_get(self, keys: List[str]) -> Dict[str, Any]:
+    async def bulk_get(self, keys: list[str]) -> dict[str, Any]:
         """Get multiple items from cache efficiently."""
         results = {}
         
@@ -869,7 +869,7 @@ class CacheManager:
         
         return results
     
-    async def bulk_set(self, items: Dict[str, Any], ttl: Optional[int] = None) -> int:
+    async def bulk_set(self, items: dict[str, Any], ttl: int | None = None) -> int:
         """Set multiple items in cache efficiently."""
         success_count = 0
         
@@ -879,7 +879,7 @@ class CacheManager:
         
         return success_count
     
-    def get_comprehensive_stats(self) -> Dict[str, Any]:
+    def get_comprehensive_stats(self) -> dict[str, Any]:
         """Get comprehensive cache statistics."""
         return self.cache.get_stats()
     

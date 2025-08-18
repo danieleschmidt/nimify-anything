@@ -1,18 +1,23 @@
 """Advanced CLI features for Nimify with enhanced model support and deployment options."""
 
-import click
 import asyncio
+import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
-import json
+
+import click
 import yaml
 
-from .core import BioneuroFusion, NeuralConfig, OlfactoryConfig, NeuralSignalType, OlfactoryMoleculeType
-from .model_analyzer import ModelAnalyzer
-from .validation import ServiceNameValidator, ValidationError
+from .core import (
+    NeuralConfig,
+    NeuralSignalType,
+    OlfactoryConfig,
+    OlfactoryMoleculeType,
+)
 from .deployment import GlobalDeploymentManager
-from .monitoring import PerformanceMonitor, MetricsCollector
+from .model_analyzer import ModelAnalyzer
+from .monitoring import MetricsCollector, PerformanceMonitor
+from .validation import ServiceNameValidator, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +47,9 @@ def bioneuro():
               default=['AROMATIC'], help='Olfactory molecule types')
 @click.option('--output', '-o', default='bioneuro_config.json', help='Output configuration file')
 def create_fusion_config(neural_type: str, sampling_rate: int, channels: int, 
-                        molecule_types: List[str], output: str):
+                        molecule_types: list[str], output: str):
     """Create bioneuro-olfactory fusion configuration."""
-    click.echo(f"🧠 Creating bioneuro fusion configuration...")
+    click.echo("🧠 Creating bioneuro fusion configuration...")
     
     # Create neural config
     neural_config = NeuralConfig(
@@ -102,7 +107,7 @@ def create_fusion_config(neural_type: str, sampling_rate: int, channels: int,
               default='auto', help='Model format (auto-detect if not specified)')
 @click.option('--optimize', is_flag=True, help='Apply optimization during analysis')
 @click.option('--export-config', help='Export detailed model configuration to file')
-def analyze(model_path: str, name: str, format: str, optimize: bool, export_config: Optional[str]):
+def analyze(model_path: str, name: str, format: str, optimize: bool, export_config: str | None):
     """Advanced model analysis with multi-format support."""
     model_path = Path(model_path)
     if not model_path.exists():
@@ -131,17 +136,17 @@ def analyze(model_path: str, name: str, format: str, optimize: bool, export_conf
             elif format == 'tensorflow':
                 analysis = ModelAnalyzer.analyze_tensorflow_model(str(model_path))
         
-        click.echo(f"✅ Analysis complete")
+        click.echo("✅ Analysis complete")
         click.echo(f"   Format: {analysis['format']}")
         click.echo(f"   Model: {analysis['model_name']}")
         
         # Display inputs
-        click.echo(f"   Inputs:")
+        click.echo("   Inputs:")
         for name, shape in analysis['inputs'].items():
             click.echo(f"     - {name}: {shape}")
         
         # Display outputs
-        click.echo(f"   Outputs:")
+        click.echo("   Outputs:")
         for name, shape in analysis['outputs'].items():
             click.echo(f"     - {name}: {shape}")
         
@@ -207,8 +212,8 @@ def deploy():
 @click.option('--compliance', multiple=True, 
               type=click.Choice(['GDPR', 'CCPA', 'PDPA', 'SOC2']),
               help='Compliance requirements')
-def global_deploy(service_name: str, regions: List[str], environment: str, 
-                 scaling_policy: str, compliance: List[str]):
+def global_deploy(service_name: str, regions: list[str], environment: str, 
+                 scaling_policy: str, compliance: list[str]):
     """Deploy service globally across multiple regions."""
     click.echo(f"🌍 Initiating global deployment for {service_name}")
     click.echo(f"   Regions: {', '.join(regions)}")
@@ -270,13 +275,13 @@ def monitor():
 @click.option('--duration', default=300, help='Monitoring duration in seconds')
 @click.option('--interval', default=5, help='Metrics collection interval in seconds')
 @click.option('--export', help='Export metrics to file')
-def performance(service_name: str, duration: int, interval: int, export: Optional[str]):
+def performance(service_name: str, duration: int, interval: int, export: str | None):
     """Monitor service performance in real-time."""
     click.echo(f"📊 Monitoring {service_name} performance...")
     click.echo(f"   Duration: {duration}s, Interval: {interval}s")
     
     try:
-        monitor = PerformanceMonitor(service_name)
+        PerformanceMonitor(service_name)
         metrics_collector = MetricsCollector(interval)
         
         # Start monitoring
@@ -361,7 +366,7 @@ def batch_deploy(config_file: str, dry_run: bool, verbose: bool):
                 if missing:
                     click.echo(f"   ❌ Missing required fields: {missing}")
                 else:
-                    click.echo(f"   ✅ Configuration valid")
+                    click.echo("   ✅ Configuration valid")
         
         if dry_run:
             click.echo("🔍 Dry run completed - all configurations validated")

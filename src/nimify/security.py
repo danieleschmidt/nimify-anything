@@ -1,15 +1,13 @@
 """Security utilities and hardening measures."""
 
 import hashlib
-import hmac
+import ipaddress
+import logging
+import re
 import secrets
 import time
 from collections import defaultdict, deque
-from typing import Dict, List, Optional, Set, Tuple
-import ipaddress
-import re
 from datetime import datetime, timedelta
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +21,16 @@ class RateLimiter:
         self.tokens_per_second = requests_per_minute / 60.0
         
         # Track tokens per IP
-        self.buckets: Dict[str, Dict[str, float]] = defaultdict(
+        self.buckets: dict[str, dict[str, float]] = defaultdict(
             lambda: {"tokens": burst_size, "last_refill": time.time()}
         )
         
         # Track request history for analysis
-        self.request_history: Dict[str, deque] = defaultdict(
+        self.request_history: dict[str, deque] = defaultdict(
             lambda: deque(maxlen=100)
         )
     
-    def is_allowed(self, client_ip: str) -> Tuple[bool, int]:
+    def is_allowed(self, client_ip: str) -> tuple[bool, int]:
         """Check if request is allowed, return (allowed, retry_after_seconds)."""
         now = time.time()
         bucket = self.buckets[client_ip]
@@ -83,9 +81,9 @@ class IPBlocklist:
     """Manage IP address blocklist with automatic expiration."""
     
     def __init__(self):
-        self.blocked_ips: Dict[str, datetime] = {}
-        self.blocked_networks: Dict[str, datetime] = {}
-        self.whitelist_networks: Set[str] = {
+        self.blocked_ips: dict[str, datetime] = {}
+        self.blocked_networks: dict[str, datetime] = {}
+        self.whitelist_networks: set[str] = {
             "127.0.0.0/8",    # localhost
             "10.0.0.0/8",     # private
             "172.16.0.0/12",  # private
@@ -170,7 +168,7 @@ class InputSanitizer:
     ]
     
     @classmethod
-    def scan_for_attacks(cls, content: str) -> List[str]:
+    def scan_for_attacks(cls, content: str) -> list[str]:
         """Scan content for potential attack patterns."""
         detected_attacks = []
         
@@ -207,10 +205,10 @@ class APIKeyManager:
     """Manage API keys for service authentication."""
     
     def __init__(self):
-        self.api_keys: Dict[str, Dict] = {}
-        self.key_usage: Dict[str, List[datetime]] = defaultdict(list)
+        self.api_keys: dict[str, dict] = {}
+        self.key_usage: dict[str, list[datetime]] = defaultdict(list)
     
-    def generate_api_key(self, name: str, permissions: List[str] = None) -> str:
+    def generate_api_key(self, name: str, permissions: list[str] = None) -> str:
         """Generate a new API key."""
         api_key = secrets.token_urlsafe(32)
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
@@ -279,7 +277,7 @@ class SecurityHeaders:
     }
     
     @classmethod
-    def get_headers(cls) -> Dict[str, str]:
+    def get_headers(cls) -> dict[str, str]:
         """Get security headers dictionary."""
         return cls.SECURITY_HEADERS.copy()
 
@@ -288,8 +286,8 @@ class ThreatDetector:
     """Detect various types of threats and attacks."""
     
     def __init__(self):
-        self.failed_attempts: Dict[str, List[datetime]] = defaultdict(list)
-        self.suspicious_patterns: Dict[str, int] = defaultdict(int)
+        self.failed_attempts: dict[str, list[datetime]] = defaultdict(list)
+        self.suspicious_patterns: dict[str, int] = defaultdict(int)
     
     def record_failed_attempt(self, ip: str, attempt_type: str):
         """Record a failed authentication/validation attempt."""
@@ -313,7 +311,7 @@ class ThreatDetector:
         # If pattern appears frequently, it might be an attack
         return self.suspicious_patterns[pattern] > 10
     
-    def analyze_request_content(self, content: str) -> Dict[str, int]:
+    def analyze_request_content(self, content: str) -> dict[str, int]:
         """Analyze request content for suspicious elements."""
         analysis = {
             "suspicious_keywords": 0,

@@ -1,17 +1,15 @@
 """Administrative API endpoints for service management and monitoring."""
 
-import asyncio
 import logging
-from typing import Dict, List, Any, Optional
 from datetime import datetime
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Depends, Security
+from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from .circuit_breaker import circuit_breaker_registry
-from .rate_limiter import MultiTierRateLimiter
-from .monitoring import SystemMetrics, HealthChecker
+from .monitoring import HealthChecker, SystemMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +53,8 @@ class SystemStatus(BaseModel):
     uptime_seconds: float
     cpu_percent: float
     memory_percent: float
-    gpu_utilization: Optional[float]
-    circuit_breakers: List[CircuitBreakerStatus]
+    gpu_utilization: float | None
+    circuit_breakers: list[CircuitBreakerStatus]
     rate_limiting: RateLimitStatus
 
 
@@ -173,7 +171,7 @@ async def force_open_circuit_breaker(name: str, token: str = Depends(verify_admi
         raise HTTPException(status_code=500, detail=f"Failed to force open circuit breaker: {str(e)}")
 
 
-@admin_router.get("/circuit-breakers", response_model=List[CircuitBreakerStatus])
+@admin_router.get("/circuit-breakers", response_model=list[CircuitBreakerStatus])
 async def list_circuit_breakers(token: str = Depends(verify_admin_token)):
     """List all circuit breakers and their status."""
     try:
@@ -197,7 +195,7 @@ async def list_circuit_breakers(token: str = Depends(verify_admin_token)):
 
 
 @admin_router.post("/rate-limit/reset", response_model=AdminResponse)
-async def reset_rate_limits(client_id: Optional[str] = None, token: str = Depends(verify_admin_token)):
+async def reset_rate_limits(client_id: str | None = None, token: str = Depends(verify_admin_token)):
     """Reset rate limits for a specific client or all clients."""
     try:
         # This would need access to the global rate limiter
@@ -324,7 +322,7 @@ async def export_metrics(format: str = "json", token: str = Depends(verify_admin
         raise HTTPException(status_code=500, detail="Failed to export metrics")
 
 
-def _convert_to_prometheus_format(metrics_data: Dict) -> str:
+def _convert_to_prometheus_format(metrics_data: dict) -> str:
     """Convert metrics data to Prometheus format."""
     prometheus_lines = []
     
@@ -347,11 +345,12 @@ def _convert_to_prometheus_format(metrics_data: Dict) -> str:
 class SystemMetrics:
     """System metrics collector."""
     
-    async def collect_system_metrics(self) -> Dict[str, Any]:
+    async def collect_system_metrics(self) -> dict[str, Any]:
         """Collect comprehensive system metrics."""
         try:
-            import psutil
             import time
+
+            import psutil
             
             # CPU and memory
             cpu_percent = psutil.cpu_percent(interval=1)
@@ -403,7 +402,7 @@ class SystemMetrics:
 class HealthChecker:
     """Comprehensive health checker."""
     
-    async def check_model_health(self) -> Dict[str, Any]:
+    async def check_model_health(self) -> dict[str, Any]:
         """Check model loading and inference health."""
         # Placeholder implementation
         return {
@@ -412,7 +411,7 @@ class HealthChecker:
             "last_check": datetime.utcnow().isoformat()
         }
     
-    async def check_database_health(self) -> Dict[str, Any]:
+    async def check_database_health(self) -> dict[str, Any]:
         """Check database connectivity."""
         # Placeholder implementation
         return {
@@ -421,7 +420,7 @@ class HealthChecker:
             "last_check": datetime.utcnow().isoformat()
         }
     
-    async def check_external_apis(self) -> Dict[str, Any]:
+    async def check_external_apis(self) -> dict[str, Any]:
         """Check external API dependencies."""
         # Placeholder implementation
         return {
@@ -430,7 +429,7 @@ class HealthChecker:
             "last_check": datetime.utcnow().isoformat()
         }
     
-    async def check_storage_health(self) -> Dict[str, Any]:
+    async def check_storage_health(self) -> dict[str, Any]:
         """Check storage system health."""
         try:
             import psutil
@@ -452,7 +451,7 @@ class HealthChecker:
                 "last_check": datetime.utcnow().isoformat()
             }
     
-    async def check_memory_health(self) -> Dict[str, Any]:
+    async def check_memory_health(self) -> dict[str, Any]:
         """Check memory usage health."""
         try:
             import psutil
@@ -474,7 +473,7 @@ class HealthChecker:
                 "last_check": datetime.utcnow().isoformat()
             }
     
-    async def check_gpu_health(self) -> Dict[str, Any]:
+    async def check_gpu_health(self) -> dict[str, Any]:
         """Check GPU health and utilization."""
         try:
             import pynvml
@@ -504,7 +503,7 @@ class HealthChecker:
                 "last_check": datetime.utcnow().isoformat()
             }
     
-    def get_recommendations(self, checks: Dict[str, Any]) -> List[str]:
+    def get_recommendations(self, checks: dict[str, Any]) -> list[str]:
         """Generate recommendations based on health check results."""
         recommendations = []
         

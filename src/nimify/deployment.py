@@ -1,13 +1,14 @@
 """Advanced deployment configuration and automation."""
 
 import json
-import yaml
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
-import tempfile
-import subprocess
 import logging
+import subprocess
+import tempfile
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class DeploymentConfig:
     # Security
     enable_network_policies: bool = True
     enable_pod_security_policy: bool = True
-    service_account: Optional[str] = None
+    service_account: str | None = None
     
     # Monitoring
     enable_prometheus: bool = True
@@ -59,8 +60,8 @@ class DeploymentConfig:
     storage_class: str = "fast-ssd"
     
     # Environment
-    environment_variables: Dict[str, str] = None
-    secrets: Dict[str, str] = None
+    environment_variables: dict[str, str] = None
+    secrets: dict[str, str] = None
     
     def __post_init__(self):
         if self.environment_variables is None:
@@ -75,7 +76,7 @@ class KubernetesManifestGenerator:
     def __init__(self, config: DeploymentConfig):
         self.config = config
     
-    def generate_namespace(self) -> Dict[str, Any]:
+    def generate_namespace(self) -> dict[str, Any]:
         """Generate namespace manifest."""
         return {
             "apiVersion": "v1",
@@ -89,7 +90,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_deployment(self) -> Dict[str, Any]:
+    def generate_deployment(self) -> dict[str, Any]:
         """Generate deployment manifest with advanced features."""
         container_env = []
         
@@ -223,7 +224,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_service(self) -> Dict[str, Any]:
+    def generate_service(self) -> dict[str, Any]:
         """Generate service manifest."""
         return {
             "apiVersion": "v1",
@@ -258,7 +259,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_hpa(self) -> Dict[str, Any]:
+    def generate_hpa(self) -> dict[str, Any]:
         """Generate Horizontal Pod Autoscaler."""
         return {
             "apiVersion": "autoscaling/v2",
@@ -328,7 +329,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_pvc(self) -> Dict[str, Any]:
+    def generate_pvc(self) -> dict[str, Any]:
         """Generate Persistent Volume Claim."""
         return {
             "apiVersion": "v1",
@@ -348,7 +349,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_service_account(self) -> Dict[str, Any]:
+    def generate_service_account(self) -> dict[str, Any]:
         """Generate Service Account with RBAC."""
         return {
             "apiVersion": "v1",
@@ -359,7 +360,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_network_policy(self) -> Dict[str, Any]:
+    def generate_network_policy(self) -> dict[str, Any]:
         """Generate Network Policy for security."""
         if not self.config.enable_network_policies:
             return {}
@@ -399,7 +400,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_pod_disruption_budget(self) -> Dict[str, Any]:
+    def generate_pod_disruption_budget(self) -> dict[str, Any]:
         """Generate Pod Disruption Budget for availability."""
         return {
             "apiVersion": "policy/v1",
@@ -418,7 +419,7 @@ class KubernetesManifestGenerator:
             }
         }
     
-    def generate_all_manifests(self) -> Dict[str, Dict[str, Any]]:
+    def generate_all_manifests(self) -> dict[str, dict[str, Any]]:
         """Generate all Kubernetes manifests."""
         manifests = {
             "namespace": self.generate_namespace(),
@@ -442,7 +443,7 @@ class HelmChartGenerator:
     def __init__(self, config: DeploymentConfig):
         self.config = config
     
-    def generate_chart_yaml(self) -> Dict[str, Any]:
+    def generate_chart_yaml(self) -> dict[str, Any]:
         """Generate Chart.yaml."""
         return {
             "apiVersion": "v2",
@@ -466,7 +467,7 @@ class HelmChartGenerator:
             ]
         }
     
-    def generate_values_yaml(self) -> Dict[str, Any]:
+    def generate_values_yaml(self) -> dict[str, Any]:
         """Generate comprehensive values.yaml."""
         return {
             "replicaCount": self.config.replicas,
@@ -603,7 +604,7 @@ class DeploymentOrchestrator:
     def __init__(self, config: DeploymentConfig):
         self.config = config
     
-    async def deploy_to_kubernetes(self, kubeconfig_path: Optional[str] = None) -> bool:
+    async def deploy_to_kubernetes(self, kubeconfig_path: str | None = None) -> bool:
         """Deploy to Kubernetes cluster."""
         try:
             # Generate manifests
@@ -647,7 +648,7 @@ class DeploymentOrchestrator:
         
         # Generate Helm chart
         helm_generator = HelmChartGenerator(self.config)
-        chart_dir = helm_generator.save_chart(package_dir / "helm")
+        helm_generator.save_chart(package_dir / "helm")
         
         # Generate raw Kubernetes manifests
         k8s_dir = package_dir / "kubernetes"

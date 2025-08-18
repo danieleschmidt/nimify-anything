@@ -1,14 +1,12 @@
 """Simple FastAPI application for basic NIM service functionality."""
 
 import time
-import uuid
-from typing import Any, Dict, List
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
 import numpy as np
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pydantic import BaseModel, Field
 
 from .logging_config import setup_logging
 
@@ -23,12 +21,12 @@ REQUEST_DURATION = Histogram('nim_request_duration_seconds', 'Request duration')
 
 class PredictionRequest(BaseModel):
     """Simple request model for predictions."""
-    input: List[List[float]] = Field(..., description="Input data for inference")
+    input: list[list[float]] = Field(..., description="Input data for inference")
 
 
 class PredictionResponse(BaseModel):
     """Simple response model for predictions."""
-    predictions: List[List[float]] = Field(..., description="Model predictions")
+    predictions: list[list[float]] = Field(..., description="Model predictions")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
 
 

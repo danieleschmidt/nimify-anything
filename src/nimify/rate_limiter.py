@@ -1,15 +1,13 @@
 """Advanced rate limiting with multiple algorithms and adaptive behavior."""
 
-import asyncio
-import time
+import hashlib
 import logging
+import threading
+import time
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Tuple, List
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
-import threading
-from collections import deque, defaultdict
-import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +46,7 @@ class RateLimitConfig:
 class RateLimitException(Exception):
     """Exception raised when rate limit is exceeded."""
     
-    def __init__(self, message: str, retry_after: Optional[float] = None, 
+    def __init__(self, message: str, retry_after: float | None = None, 
                  limit_type: str = "general"):
         super().__init__(message)
         self.retry_after = retry_after
@@ -59,17 +57,17 @@ class RateLimiter(ABC):
     """Abstract base class for rate limiters."""
     
     @abstractmethod
-    async def is_allowed(self, key: str, tokens: int = 1) -> Tuple[bool, Optional[float]]:
+    async def is_allowed(self, key: str, tokens: int = 1) -> tuple[bool, float | None]:
         """Check if request is allowed. Returns (allowed, retry_after)."""
         pass
     
     @abstractmethod
-    def get_metrics(self) -> Dict:
+    def get_metrics(self) -> dict:
         """Get rate limiter metrics."""
         pass
     
     @abstractmethod
-    def reset(self, key: Optional[str] = None):
+    def reset(self, key: str | None = None):
         """Reset rate limiter state."""
         pass
 
@@ -79,14 +77,14 @@ class TokenBucketRateLimiter(RateLimiter):
     
     def __init__(self, config: RateLimitConfig):
         self.config = config
-        self.buckets: Dict[str, Dict] = {}
+        self.buckets: dict[str, dict] = {}
         self.lock = threading.RLock()
         self.total_requests = 0
         self.total_rejected = 0
         
         logger.info(f"Token bucket rate limiter initialized: {config.max_requests} req/{config.window_size}s")
     
-    async def is_allowed(self, key: str, tokens: int = 1) -> Tuple[bool, Optional[float]]:
+    async def is_allowed(self, key: str, tokens: int = 1) -> tuple[bool, float | None]:
         """Check if request is allowed using token bucket algorithm."""
         current_time = time.time()
         
@@ -124,7 +122,7 @@ class TokenBucketRateLimiter(RateLimiter):
                 
                 return False, retry_after
     
-    def get_metrics(self) -> Dict:
+    def get_metrics(self) -> dict:
         """Get token bucket metrics."""
         with self.lock:
             client_metrics = {}
@@ -150,7 +148,7 @@ class TokenBucketRateLimiter(RateLimiter):
                 }
             }
     
-    def reset(self, key: Optional[str] = None):
+    def reset(self, key: str | None = None):
         """Reset bucket state."""
         with self.lock:
             if key:
@@ -172,14 +170,14 @@ class SlidingWindowRateLimiter(RateLimiter):
     
     def __init__(self, config: RateLimitConfig):
         self.config = config
-        self.windows: Dict[str, deque] = defaultdict(lambda: deque())
+        self.windows: dict[str, deque] = defaultdict(lambda: deque())
         self.lock = threading.RLock()
         self.total_requests = 0
         self.total_rejected = 0
         
         logger.info(f"Sliding window rate limiter initialized: {config.max_requests} req/{config.window_size}s")
     
-    async def is_allowed(self, key: str, tokens: int = 1) -> Tuple[bool, Optional[float]]:
+    async def is_allowed(self, key: str, tokens: int = 1) -> tuple[bool, float | None]:
         """Check if request is allowed using sliding window algorithm."""
         current_time = time.time()
         window_start = current_time - self.config.window_size
@@ -212,7 +210,7 @@ class SlidingWindowRateLimiter(RateLimiter):
                 
                 return False, retry_after
     
-    def get_metrics(self) -> Dict:
+    def get_metrics(self) -> dict:
         """Get sliding window metrics."""
         with self.lock:
             current_time = time.time()
@@ -242,7 +240,7 @@ class SlidingWindowRateLimiter(RateLimiter):
                 }
             }
     
-    def reset(self, key: Optional[str] = None):
+    def reset(self, key: str | None = None):
         """Reset window state."""
         with self.lock:
             if key:
@@ -267,7 +265,7 @@ class AdaptiveRateLimiter(RateLimiter):
         
         logger.info(f"Adaptive rate limiter initialized: {config.min_requests}-{config.max_requests_adaptive} req/{config.window_size}s")
     
-    async def is_allowed(self, key: str, tokens: int = 1) -> Tuple[bool, Optional[float]]:
+    async def is_allowed(self, key: str, tokens: int = 1) -> tuple[bool, float | None]:
         """Check if request is allowed with adaptive limits."""
         # Update current load metrics
         await self._update_load_metrics()
@@ -347,7 +345,7 @@ class AdaptiveRateLimiter(RateLimiter):
                 logger.info(f"Adaptive rate limiter adjusted: {old_limit} -> {self.current_limit} "
                            f"(load: {avg_load:.1f}%)")
     
-    def get_metrics(self) -> Dict:
+    def get_metrics(self) -> dict:
         """Get adaptive rate limiter metrics."""
         base_metrics = self.base_limiter.get_metrics()
         
@@ -365,7 +363,7 @@ class AdaptiveRateLimiter(RateLimiter):
         
         return base_metrics
     
-    def reset(self, key: Optional[str] = None):
+    def reset(self, key: str | None = None):
         """Reset adaptive limiter state."""
         self.base_limiter.reset(key)
         if not key:  # Full reset
@@ -378,7 +376,7 @@ class AdaptiveRateLimiter(RateLimiter):
 class MultiTierRateLimiter:
     """Multi-tier rate limiter with global and per-client limits."""
     
-    def __init__(self, global_config: RateLimitConfig, client_config: Optional[RateLimitConfig] = None):
+    def __init__(self, global_config: RateLimitConfig, client_config: RateLimitConfig | None = None):
         self.global_limiter = self._create_limiter(global_config)
         
         if client_config:
@@ -393,8 +391,8 @@ class MultiTierRateLimiter:
                 refill_rate=global_config.per_client_max / global_config.window_size
             )
         
-        self.client_limiters: Dict[str, RateLimiter] = {}
-        self.penalties: Dict[str, float] = {}  # Client -> penalty end time
+        self.client_limiters: dict[str, RateLimiter] = {}
+        self.penalties: dict[str, float] = {}  # Client -> penalty end time
         self.lock = threading.RLock()
         
         logger.info("Multi-tier rate limiter initialized with global and per-client limits")
@@ -410,7 +408,7 @@ class MultiTierRateLimiter:
         else:
             return TokenBucketRateLimiter(config)  # Default
     
-    async def is_allowed(self, client_id: str, tokens: int = 1) -> Tuple[bool, Optional[float], str]:
+    async def is_allowed(self, client_id: str, tokens: int = 1) -> tuple[bool, float | None, str]:
         """Check if request is allowed. Returns (allowed, retry_after, limit_type)."""
         current_time = time.time()
         
@@ -456,7 +454,7 @@ class MultiTierRateLimiter:
             
             logger.warning(f"Applied penalty to client {client_id}: {penalty_duration}s")
     
-    def get_metrics(self) -> Dict:
+    def get_metrics(self) -> dict:
         """Get comprehensive rate limiting metrics."""
         global_metrics = self.global_limiter.get_metrics()
         
@@ -485,7 +483,7 @@ class MultiTierRateLimiter:
                 }
             }
     
-    def reset(self, client_id: Optional[str] = None):
+    def reset(self, client_id: str | None = None):
         """Reset rate limiter state."""
         if client_id:
             with self.lock:
@@ -502,7 +500,7 @@ class MultiTierRateLimiter:
                 self.penalties.clear()
 
 
-def get_client_id(request_info: Dict) -> str:
+def get_client_id(request_info: dict) -> str:
     """Extract client identifier from request information."""
     # Try different identification methods
     if 'api_key' in request_info:

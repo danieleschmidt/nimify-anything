@@ -1,11 +1,11 @@
 """Multi-modal fusion engine for bioneuro-olfactory data integration."""
 
-import numpy as np
-from scipy import stats, signal as scipy_signal
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,9 @@ class FusionResults:
     temporal_alignment_score: float
     
     # Prediction outputs
-    olfactory_response_prediction: Dict[str, float]
-    neural_activity_prediction: Dict[str, float]
-    behavioral_prediction: Dict[str, float]
+    olfactory_response_prediction: dict[str, float]
+    neural_activity_prediction: dict[str, float]
+    behavioral_prediction: dict[str, float]
     
     # Quality metrics
     fusion_confidence: float
@@ -102,7 +102,7 @@ class TemporalAlignment:
         olfactory_timestamps: np.ndarray,
         olfactory_data: np.ndarray,
         alignment_window: float = 0.1  # seconds
-    ) -> Tuple[np.ndarray, np.ndarray, float]:
+    ) -> tuple[np.ndarray, np.ndarray, float]:
         """
         Align temporal signals from neural and olfactory modalities.
         
@@ -144,7 +144,7 @@ class TemporalAlignment:
         timestamps: np.ndarray,
         baseline_duration: float = 1.0,
         threshold_factor: float = 2.0
-    ) -> Optional[float]:
+    ) -> float | None:
         """Detect response onset time in a signal."""
         
         if len(signal) < 10:
@@ -182,10 +182,10 @@ class MultiModalFusionEngine:
     
     def fuse(
         self,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any],
+        neural_features: dict[str, Any],
+        olfactory_features: dict[str, Any],
         temporal_alignment: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Main fusion function combining neural and olfactory modalities.
         
@@ -261,7 +261,7 @@ class MultiModalFusionEngine:
         
         return comprehensive_results
     
-    def _extract_neural_feature_vector(self, neural_features: Dict[str, Any]) -> np.ndarray:
+    def _extract_neural_feature_vector(self, neural_features: dict[str, Any]) -> np.ndarray:
         """Extract numerical feature vector from neural features."""
         
         # Get the neural features object
@@ -298,7 +298,7 @@ class MultiModalFusionEngine:
         
         return np.array(feature_vector)
     
-    def _extract_olfactory_feature_vector(self, olfactory_features: Dict[str, Any]) -> np.ndarray:
+    def _extract_olfactory_feature_vector(self, olfactory_features: dict[str, Any]) -> np.ndarray:
         """Extract numerical feature vector from olfactory features."""
         
         molecular_features = olfactory_features.get('molecular_features')
@@ -334,11 +334,11 @@ class MultiModalFusionEngine:
     
     def _perform_temporal_alignment(
         self,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any],
+        neural_features: dict[str, Any],
+        olfactory_features: dict[str, Any],
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, float]:
+    ) -> tuple[np.ndarray, np.ndarray, float]:
         """Perform temporal alignment between modalities."""
         
         # Get temporal profiles
@@ -372,7 +372,7 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Apply the specified fusion strategy."""
         
         if self.fusion_strategy == FusionStrategy.EARLY_FUSION:
@@ -393,7 +393,7 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Early fusion: concatenate features before processing."""
         
         # Normalize feature vectors to same scale
@@ -416,7 +416,7 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Late fusion: combine at decision level."""
         
         # Process each modality separately then combine
@@ -459,7 +459,7 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Attention-based fusion with learned weights."""
         
         # Initialize attention mechanism if not exists
@@ -496,7 +496,7 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Canonical correlation analysis-based fusion."""
         
         # For single vectors, compute correlation and use as weight
@@ -540,7 +540,7 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Bayesian inference-based fusion."""
         
         # Simple Bayesian approach using means and variances
@@ -599,9 +599,9 @@ class MultiModalFusionEngine:
     
     def _analyze_cross_modal_relationships(
         self,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        neural_features: dict[str, Any],
+        olfactory_features: dict[str, Any]
+    ) -> dict[str, Any]:
         """Analyze relationships between neural and olfactory modalities."""
         
         # Extract key metrics for correlation analysis
@@ -658,8 +658,8 @@ class MultiModalFusionEngine:
     
     def _analyze_temporal_coupling(
         self,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any]
+        neural_features: dict[str, Any],
+        olfactory_features: dict[str, Any]
     ) -> float:
         """Analyze temporal coupling between modalities."""
         
@@ -688,7 +688,7 @@ class MultiModalFusionEngine:
         
         return temporal_coupling
     
-    def _compute_modal_dominance(self, metrics: List[float]) -> float:
+    def _compute_modal_dominance(self, metrics: list[float]) -> float:
         """Compute dominance score for a modality."""
         if not metrics:
             return 0.0
@@ -702,9 +702,9 @@ class MultiModalFusionEngine:
     def _generate_predictions(
         self,
         fused_features: np.ndarray,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any]
-    ) -> Dict[str, Dict[str, float]]:
+        neural_features: dict[str, Any],
+        olfactory_features: dict[str, Any]
+    ) -> dict[str, dict[str, float]]:
         """Generate predictions based on fused features."""
         
         # Extract key values from fused features for predictions
@@ -749,8 +749,8 @@ class MultiModalFusionEngine:
         self,
         neural_vector: np.ndarray,
         olfactory_vector: np.ndarray,
-        fusion_results: Dict[str, Any]
-    ) -> Dict[str, float]:
+        fusion_results: dict[str, Any]
+    ) -> dict[str, float]:
         """Assess quality of the fusion process."""
         
         # Confidence based on input signal quality
@@ -780,7 +780,7 @@ class MultiModalFusionEngine:
             'olfactory_confidence': olfactory_confidence
         }
     
-    def _summarize_neural_features(self, neural_features: Dict[str, Any]) -> Dict[str, Any]:
+    def _summarize_neural_features(self, neural_features: dict[str, Any]) -> dict[str, Any]:
         """Create summary of neural features."""
         features = neural_features.get('features')
         signal_quality = neural_features.get('signal_quality', {})
@@ -793,7 +793,7 @@ class MultiModalFusionEngine:
             'processing_success': features is not None
         }
     
-    def _summarize_olfactory_features(self, olfactory_features: Dict[str, Any]) -> Dict[str, Any]:
+    def _summarize_olfactory_features(self, olfactory_features: dict[str, Any]) -> dict[str, Any]:
         """Create summary of olfactory features."""
         molecular_features = olfactory_features.get('molecular_features')
         receptor_activation = olfactory_features.get('receptor_activation', {})
@@ -808,9 +808,9 @@ class MultiModalFusionEngine:
     
     def _analyze_temporal_dynamics(
         self,
-        neural_features: Dict[str, Any],
-        olfactory_features: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        neural_features: dict[str, Any],
+        olfactory_features: dict[str, Any]
+    ) -> dict[str, Any]:
         """Analyze temporal dynamics of the fusion process."""
         
         temporal_profile = olfactory_features.get('temporal_profile', {})
@@ -824,7 +824,7 @@ class MultiModalFusionEngine:
             'synchronization_quality': self._analyze_temporal_coupling(neural_features, olfactory_features)
         }
 
-    def analyze_fusion_performance(self) -> Dict[str, Any]:
+    def analyze_fusion_performance(self) -> dict[str, Any]:
         """Analyze performance across fusion history."""
         
         if not self.fusion_history:

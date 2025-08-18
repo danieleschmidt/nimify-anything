@@ -2,8 +2,8 @@
 
 import json
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -13,7 +13,7 @@ class ModelConfig:
     name: str
     max_batch_size: int = 32
     dynamic_batching: bool = True
-    preferred_batch_sizes: List[int] = None
+    preferred_batch_sizes: list[int] = None
     max_queue_delay_microseconds: int = 100
     gpu_memory: str = "auto"
     
@@ -31,8 +31,8 @@ class Nimifier:
     def wrap_model(
         self,
         model_path: str,
-        input_schema: Dict[str, str],
-        output_schema: Dict[str, str]
+        input_schema: dict[str, str],
+        output_schema: dict[str, str]
     ) -> 'NIMService':
         """Wrap a model file into a NIM service."""
         return NIMService(
@@ -50,15 +50,15 @@ class NIMService:
         self,
         config: ModelConfig,
         model_path: str,
-        input_schema: Dict[str, str],
-        output_schema: Dict[str, str]
+        input_schema: dict[str, str],
+        output_schema: dict[str, str]
     ):
         self.config = config
         self.model_path = model_path
         self.input_schema = input_schema
         self.output_schema = output_schema
     
-    def _schema_to_openapi(self, schema: Dict[str, str]) -> Dict[str, Any]:
+    def _schema_to_openapi(self, schema: dict[str, str]) -> dict[str, Any]:
         """Convert internal schema format to OpenAPI schema."""
         properties = {}
         
@@ -90,7 +90,6 @@ class NIMService:
     def generate_openapi(self, output_path: str) -> None:
         """Generate OpenAPI specification."""
         from pathlib import Path
-        import json
         
         # Generate OpenAPI spec based on input/output schemas
         openapi_spec = {
@@ -142,7 +141,6 @@ class NIMService:
     def generate_helm_chart(self, output_dir: str) -> None:
         """Generate Helm chart for Kubernetes deployment."""
         from pathlib import Path
-        import shutil
         
         chart_dir = Path(output_dir)
         chart_dir.mkdir(parents=True, exist_ok=True)
@@ -251,7 +249,7 @@ spec:
         # Build Docker image
         try:
             env = {"DOCKER_BUILDKIT": "1"} if optimize else {}
-            result = subprocess.run(
+            subprocess.run(
                 build_args,
                 check=True, 
                 capture_output=True, 

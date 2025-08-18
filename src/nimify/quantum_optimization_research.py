@@ -8,18 +8,18 @@ performance improvements over classical optimization methods for
 multi-modal AI inference tasks.
 """
 
+import concurrent.futures
+import logging
+import time
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, List, Optional, Tuple, Any, Callable
-from dataclasses import dataclass
-import logging
-import time
-import math
-from abc import ABC, abstractmethod
 from scipy.optimize import minimize
-from scipy.stats import entropy
-import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class QuantumState:
     
     # Evolution tracking
     generation: int
-    parent_states: List[int]
+    parent_states: list[int]
 
 
 class QuantumInspiredOptimizer(ABC):
@@ -54,8 +54,8 @@ class QuantumInspiredOptimizer(ABC):
         self,
         objective_function: Callable,
         initial_params: np.ndarray,
-        constraints: Optional[Dict] = None
-    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+        constraints: dict | None = None
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
         """Optimize the objective function."""
         pass
 
@@ -122,10 +122,7 @@ class QuantumAnnealingOptimizer(QuantumInspiredOptimizer):
         
         # Normalize parameters to create amplitudes
         param_norm = np.linalg.norm(parameters)
-        if param_norm > 0:
-            amplitudes = parameters / param_norm
-        else:
-            amplitudes = parameters
+        amplitudes = parameters / param_norm if param_norm > 0 else parameters
         
         # Random phases (quantum analogy)
         phases = np.random.uniform(0, 2 * np.pi, len(parameters))
@@ -185,8 +182,8 @@ class QuantumAnnealingOptimizer(QuantumInspiredOptimizer):
     
     def _quantum_superposition(
         self,
-        states: List[QuantumState],
-        weights: Optional[np.ndarray] = None
+        states: list[QuantumState],
+        weights: np.ndarray | None = None
     ) -> np.ndarray:
         """Create superposition of quantum states."""
         
@@ -212,8 +209,8 @@ class QuantumAnnealingOptimizer(QuantumInspiredOptimizer):
         self,
         objective_function: Callable,
         initial_params: np.ndarray,
-        constraints: Optional[Dict] = None
-    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+        constraints: dict | None = None
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
         """Quantum annealing optimization."""
         
         # Initialize population
@@ -410,10 +407,10 @@ class QuantumGradientOptimizer(QuantumInspiredOptimizer):
         self,
         objective_function: Callable,
         initial_params: np.ndarray,
-        constraints: Optional[Dict] = None,
+        constraints: dict | None = None,
         max_iterations: int = 1000,
         tolerance: float = 1e-6
-    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
         """Quantum-inspired gradient descent optimization."""
         
         params = initial_params.copy()
@@ -510,7 +507,7 @@ class QuantumInspiredModelOptimizer:
         train_loader: torch.utils.data.DataLoader,
         loss_function: Callable,
         max_iterations: int = 100
-    ) -> Tuple[nn.Module, Dict[str, Any]]:
+    ) -> tuple[nn.Module, dict[str, Any]]:
         """Optimize neural network using quantum-inspired algorithms."""
         
         # Convert model parameters to flat array
@@ -529,7 +526,7 @@ class QuantumInspiredModelOptimizer:
             param_idx = 0
             model_copy = type(model)(**model.__dict__)  # Create copy
             
-            for param, shape in zip(model_copy.parameters(), param_shapes):
+            for param, shape in zip(model_copy.parameters(), param_shapes, strict=False):
                 param_size = np.prod(shape)
                 param_data = flat_params[param_idx:param_idx + param_size]
                 param.data = torch.tensor(
@@ -606,7 +603,7 @@ class QuantumInspiredModelOptimizer:
         
         # Update model with best parameters
         param_idx = 0
-        for param, shape in zip(model.parameters(), param_shapes):
+        for param, shape in zip(model.parameters(), param_shapes, strict=False):
             param_size = np.prod(shape)
             param_data = best_params[param_idx:param_idx + param_size]
             param.data = torch.tensor(
@@ -674,11 +671,13 @@ class QuantumOptimizationBenchmark:
     
     def run_benchmark(
         self,
-        dimensions: List[int] = [2, 5, 10, 20],
+        dimensions: list[int] = None,
         num_trials: int = 10
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """Run comprehensive benchmark comparing quantum vs classical optimization."""
         
+        if dimensions is None:
+            dimensions = [2, 5, 10, 20]
         results = {}
         
         for test_name, test_function in self.test_functions.items():
@@ -691,7 +690,7 @@ class QuantumOptimizationBenchmark:
                 quantum_results = []
                 quantum_times = []
                 
-                for trial in range(num_trials):
+                for _trial in range(num_trials):
                     initial_point = np.random.uniform(-5, 5, dim)
                     
                     start_time = time.time()
@@ -708,7 +707,7 @@ class QuantumOptimizationBenchmark:
                 classical_results = {name: [] for name in self.classical_optimizers}
                 classical_times = {name: [] for name in self.classical_optimizers}
                 
-                for trial in range(num_trials):
+                for _trial in range(num_trials):
                     initial_point = np.random.uniform(-5, 5, dim)
                     
                     # BFGS
@@ -756,7 +755,7 @@ class QuantumOptimizationBenchmark:
     
     def generate_benchmark_report(
         self,
-        results: Dict[str, Dict[str, Dict[str, Dict[str, float]]]]
+        results: dict[str, dict[str, dict[str, dict[str, float]]]]
     ) -> str:
         """Generate comprehensive benchmark report."""
         
@@ -878,7 +877,7 @@ if __name__ == "__main__":
         rosenbrock_2d, initial_point
     )
     
-    print(f"✅ Optimization complete:")
+    print("✅ Optimization complete:")
     print(f"   Best parameters: {best_params}")
     print(f"   Best energy: {best_energy:.6f}")
     print(f"   Iterations: {stats['iterations']}")

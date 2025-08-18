@@ -1,7 +1,8 @@
 """Command-line interface for Nimify."""
 
 import click
-from .core import Nimifier, ModelConfig
+
+from .core import ModelConfig, Nimifier
 
 
 @click.group()
@@ -19,8 +20,8 @@ def main():
 @click.option('--dynamic-batching/--no-dynamic-batching', default=True)
 def create(model_path: str, name: str, port: int, max_batch_size: int, dynamic_batching: bool):
     """Create a NIM service from a model file."""
-    import os
     from pathlib import Path
+
     from .model_analyzer import ModelAnalyzer
     
     # Validate model file exists
@@ -29,7 +30,8 @@ def create(model_path: str, name: str, port: int, max_batch_size: int, dynamic_b
         raise click.Abort()
     
     # Validate service name using proper validation
-    from .validation import ServiceNameValidator, ValidationError as ValidErr
+    from .validation import ServiceNameValidator
+    from .validation import ValidationError as ValidErr
     
     try:
         ServiceNameValidator.validate_service_name(name)
@@ -87,7 +89,7 @@ def create(model_path: str, name: str, port: int, max_batch_size: int, dynamic_b
     click.echo(f"⎈ Generated Helm chart: {helm_dir}/")
     
     click.echo(f"🎉 NIM service '{name}' created successfully!")
-    click.echo(f"Next steps:")
+    click.echo("Next steps:")
     click.echo(f"  1. Build container: nimify build {name}")
     click.echo(f"  2. Deploy: helm install {name} ./{helm_dir}")
     click.echo(f"  3. Test API: curl http://localhost:{port}/health")

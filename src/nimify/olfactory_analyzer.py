@@ -1,10 +1,10 @@
 """Olfactory stimulus analysis module for bioneuro-olfactory fusion."""
 
-import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass
 import logging
-from enum import Enum
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
 
 from .core import OlfactoryConfig, OlfactoryMoleculeType
 
@@ -22,7 +22,7 @@ class MolecularFeatures:
     melting_point: float   # °C
     
     # Chemical descriptors
-    functional_groups: List[str]
+    functional_groups: list[str]
     carbon_chain_length: int
     double_bonds: int
     ring_structures: int
@@ -34,14 +34,14 @@ class MolecularFeatures:
     volume: float          # Å³
     
     # Olfactory-specific properties
-    odor_character: List[str]
+    odor_character: list[str]
     perceived_intensity: float  # 0-10 scale
     threshold_concentration: float  # ppm
     
     # Computational descriptors
-    dragon_descriptors: Optional[Dict[str, float]] = None
-    mordred_descriptors: Optional[Dict[str, float]] = None
-    rdkit_descriptors: Optional[Dict[str, float]] = None
+    dragon_descriptors: dict[str, float] | None = None
+    mordred_descriptors: dict[str, float] | None = None
+    rdkit_descriptors: dict[str, float] | None = None
 
 
 class OlfactoryPerceptionModel:
@@ -88,7 +88,7 @@ class OlfactoryAnalyzer:
         self.perception_model = OlfactoryPerceptionModel()
         self.molecular_database = self._load_molecular_database()
     
-    def _load_molecular_database(self) -> Dict[str, Any]:
+    def _load_molecular_database(self) -> dict[str, Any]:
         """Load molecular database with known odorants."""
         # Simplified molecular database
         database = {
@@ -148,9 +148,9 @@ class OlfactoryAnalyzer:
     
     def analyze(
         self, 
-        molecule_data: Dict[str, Any], 
+        molecule_data: dict[str, Any], 
         concentration: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze olfactory stimulus properties and predict neural responses.
         
@@ -205,7 +205,7 @@ class OlfactoryAnalyzer:
             }
         }
     
-    def _extract_molecular_features(self, molecule_data: Dict[str, Any]) -> MolecularFeatures:
+    def _extract_molecular_features(self, molecule_data: dict[str, Any]) -> MolecularFeatures:
         """Extract comprehensive molecular features."""
         
         # Check if molecule is in our database
@@ -234,7 +234,7 @@ class OlfactoryAnalyzer:
             # Generate features from provided data
             return self._generate_features_from_raw_data(molecule_data)
     
-    def _calculate_polarity_index(self, functional_groups: List[str]) -> float:
+    def _calculate_polarity_index(self, functional_groups: list[str]) -> float:
         """Calculate polarity index based on functional groups."""
         polarity_values = {
             'alcohol': 0.8,
@@ -265,7 +265,7 @@ class OlfactoryAnalyzer:
         # Van der Waals volume estimation
         return molecular_weight / 0.6  # Approximate density
     
-    def _generate_features_from_raw_data(self, molecule_data: Dict[str, Any]) -> MolecularFeatures:
+    def _generate_features_from_raw_data(self, molecule_data: dict[str, Any]) -> MolecularFeatures:
         """Generate molecular features from raw input data."""
         mw = molecule_data.get('molecular_weight', 150.0)
         
@@ -291,7 +291,7 @@ class OlfactoryAnalyzer:
         self, 
         features: MolecularFeatures, 
         concentration: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Predict olfactory receptor activation patterns."""
         
         # Determine primary molecule type
@@ -339,7 +339,7 @@ class OlfactoryAnalyzer:
         self,
         features: MolecularFeatures,
         concentration: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compute psychophysical properties (perceived intensity, pleasantness, etc.)."""
         
         # Perceived intensity using Stevens' power law
@@ -388,9 +388,9 @@ class OlfactoryAnalyzer:
     def _predict_neural_responses(
         self,
         features: MolecularFeatures,
-        receptor_activation: Dict[str, Any],
+        receptor_activation: dict[str, Any],
         concentration: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Predict neural response patterns in olfactory processing areas."""
         
         # Olfactory bulb response
@@ -417,9 +417,9 @@ class OlfactoryAnalyzer:
     
     def _predict_bulb_response(
         self, 
-        receptor_activation: Dict[str, Any], 
+        receptor_activation: dict[str, Any], 
         concentration: float
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Predict olfactory bulb response patterns."""
         activation_sum = receptor_activation['activation_sum']
         
@@ -434,9 +434,9 @@ class OlfactoryAnalyzer:
     
     def _predict_cortical_response(
         self,
-        bulb_response: Dict[str, float],
+        bulb_response: dict[str, float],
         features: MolecularFeatures
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Predict piriform cortex response patterns."""
         mitral_input = bulb_response['mitral_cell_activity']
         
@@ -451,10 +451,10 @@ class OlfactoryAnalyzer:
     
     def _predict_ofc_response(
         self,
-        cortical_response: Dict[str, float],
+        cortical_response: dict[str, float],
         features: MolecularFeatures,
         concentration: float
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Predict orbitofrontal cortex response patterns."""
         cortical_input = cortical_response['pyramidal_cell_activity']
         
@@ -474,7 +474,7 @@ class OlfactoryAnalyzer:
         self,
         features: MolecularFeatures,
         concentration: float
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Predict limbic system response (amygdala, hippocampus)."""
         
         # Emotional salience
@@ -491,11 +491,11 @@ class OlfactoryAnalyzer:
     
     def _integrate_neural_responses(
         self,
-        ob_response: Dict[str, float],
-        pc_response: Dict[str, float],
-        ofc_response: Dict[str, float],
-        limbic_response: Dict[str, float]
-    ) -> Dict[str, float]:
+        ob_response: dict[str, float],
+        pc_response: dict[str, float],
+        ofc_response: dict[str, float],
+        limbic_response: dict[str, float]
+    ) -> dict[str, float]:
         """Integrate responses across brain regions."""
         
         return {
@@ -515,7 +515,7 @@ class OlfactoryAnalyzer:
         self,
         features: MolecularFeatures,
         concentration: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate temporal profile of olfactory response."""
         
         # Time parameters
@@ -555,9 +555,9 @@ class OlfactoryAnalyzer:
 
     def predict_mixture_response(
         self,
-        mixture_components: List[Tuple[Dict[str, Any], float]],
+        mixture_components: list[tuple[dict[str, Any], float]],
         total_concentration: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Predict response to olfactory mixtures.
         
@@ -613,9 +613,9 @@ class OlfactoryAnalyzer:
     
     def _compute_mixture_interactions(
         self,
-        component_features: List[MolecularFeatures],
-        concentrations: List[float]
-    ) -> Dict[str, Any]:
+        component_features: list[MolecularFeatures],
+        concentrations: list[float]
+    ) -> dict[str, Any]:
         """Compute interactions between mixture components."""
         
         # Competitive inhibition
@@ -682,8 +682,8 @@ class OlfactoryAnalyzer:
     
     def _aggregate_neural_responses(
         self,
-        individual_responses: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        individual_responses: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Aggregate neural responses across mixture components."""
         
         aggregated = {
@@ -694,10 +694,10 @@ class OlfactoryAnalyzer:
             'integrated_response': {}
         }
         
-        for region in aggregated.keys():
+        for region in aggregated:
             region_responses = [resp['neural_predictions'][region] for resp in individual_responses]
             
-            for metric in region_responses[0].keys():
+            for metric in region_responses[0]:
                 values = [resp[metric] for resp in region_responses]
                 
                 # Different aggregation strategies for different metrics
@@ -718,9 +718,9 @@ class OlfactoryAnalyzer:
     
     def _predict_emergent_properties(
         self,
-        component_features: List[MolecularFeatures],
-        interactions: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        component_features: list[MolecularFeatures],
+        interactions: dict[str, Any]
+    ) -> dict[str, Any]:
         """Predict emergent properties of the mixture."""
         
         # Emergent odor character
@@ -751,7 +751,7 @@ class OlfactoryAnalyzer:
     
     def _identify_dominant_component(
         self,
-        individual_responses: List[Dict[str, Any]]
+        individual_responses: list[dict[str, Any]]
     ) -> int:
         """Identify the dominant component in the mixture."""
         

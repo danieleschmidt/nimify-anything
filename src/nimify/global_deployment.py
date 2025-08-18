@@ -2,11 +2,10 @@
 
 import json
 import logging
-import time
-from enum import Enum
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +40,10 @@ class RegionConfig:
     """Configuration for a specific region."""
     region: Region
     enabled: bool = True
-    compliance_standards: List[ComplianceStandard] = field(default_factory=list)
+    compliance_standards: list[ComplianceStandard] = field(default_factory=list)
     data_residency_required: bool = False
-    local_regulations: Dict[str, Any] = field(default_factory=dict)
-    edge_locations: List[str] = field(default_factory=list)
+    local_regulations: dict[str, Any] = field(default_factory=dict)
+    edge_locations: list[str] = field(default_factory=list)
     cost_optimization_tier: str = "standard"  # economy, standard, premium
     
     # Resource configuration
@@ -54,8 +53,8 @@ class RegionConfig:
     storage_class: str = "standard"
     
     # Network configuration
-    vpc_config: Optional[Dict[str, Any]] = None
-    security_groups: List[str] = field(default_factory=list)
+    vpc_config: dict[str, Any] | None = None
+    security_groups: list[str] = field(default_factory=list)
     load_balancer_type: str = "application"
 
 
@@ -63,7 +62,7 @@ class RegionConfig:
 class I18nConfig:
     """Internationalization configuration."""
     default_language: str = "en"
-    supported_languages: List[str] = field(default_factory=lambda: ["en", "es", "fr", "de", "ja", "zh-CN", "pt", "ru"])
+    supported_languages: list[str] = field(default_factory=lambda: ["en", "es", "fr", "de", "ja", "zh-CN", "pt", "ru"])
     locale_detection: str = "header"  # header, geo, user_preference
     fallback_behavior: str = "default"  # default, error, closest_match
     
@@ -73,14 +72,14 @@ class I18nConfig:
     quality_threshold: float = 0.9
     
     # Content configuration
-    date_formats: Dict[str, str] = field(default_factory=lambda: {
+    date_formats: dict[str, str] = field(default_factory=lambda: {
         "en": "%Y-%m-%d",
         "de": "%d.%m.%Y", 
         "ja": "%Y年%m月%d日",
         "zh-CN": "%Y年%m月%d日"
     })
     
-    currency_formats: Dict[str, str] = field(default_factory=lambda: {
+    currency_formats: dict[str, str] = field(default_factory=lambda: {
         "en": "USD",
         "eu": "EUR",
         "jp": "JPY",
@@ -92,7 +91,7 @@ class GlobalDeploymentManager:
     """Manages global multi-region deployments."""
     
     def __init__(self):
-        self.regions: Dict[Region, RegionConfig] = {}
+        self.regions: dict[Region, RegionConfig] = {}
         self.i18n_config = I18nConfig()
         self.deployment_strategy = "blue_green"  # blue_green, rolling, canary
         self.traffic_routing = "latency_based"  # latency_based, geo_based, weighted
@@ -154,7 +153,7 @@ class GlobalDeploymentManager:
             max_replicas=30
         )
     
-    def generate_global_deployment_manifests(self, service_name: str) -> Dict[str, Any]:
+    def generate_global_deployment_manifests(self, service_name: str) -> dict[str, Any]:
         """Generate deployment manifests for all enabled regions."""
         manifests = {
             "global_config": self._generate_global_config(service_name),
@@ -172,7 +171,7 @@ class GlobalDeploymentManager:
         
         return manifests
     
-    def _generate_global_config(self, service_name: str) -> Dict[str, Any]:
+    def _generate_global_config(self, service_name: str) -> dict[str, Any]:
         """Generate global configuration."""
         return {
             "service_name": service_name,
@@ -225,7 +224,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_regional_manifests(self, service_name: str, region_config: RegionConfig) -> Dict[str, Any]:
+    def _generate_regional_manifests(self, service_name: str, region_config: RegionConfig) -> dict[str, Any]:
         """Generate manifests for a specific region."""
         manifests = {
             "deployment": self._generate_regional_deployment(service_name, region_config),
@@ -245,7 +244,7 @@ class GlobalDeploymentManager:
         
         return manifests
     
-    def _generate_regional_deployment(self, service_name: str, config: RegionConfig) -> Dict[str, Any]:
+    def _generate_regional_deployment(self, service_name: str, config: RegionConfig) -> dict[str, Any]:
         """Generate regional deployment manifest."""
         return {
             "apiVersion": "apps/v1",
@@ -394,7 +393,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_regional_service(self, service_name: str, config: RegionConfig) -> Dict[str, Any]:
+    def _generate_regional_service(self, service_name: str, config: RegionConfig) -> dict[str, Any]:
         """Generate regional service manifest."""
         return {
             "apiVersion": "v1",
@@ -435,7 +434,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_regional_hpa(self, service_name: str, config: RegionConfig) -> Dict[str, Any]:
+    def _generate_regional_hpa(self, service_name: str, config: RegionConfig) -> dict[str, Any]:
         """Generate Horizontal Pod Autoscaler for the region."""
         return {
             "apiVersion": "autoscaling/v2",
@@ -507,7 +506,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_traffic_management_config(self, service_name: str) -> Dict[str, Any]:
+    def _generate_traffic_management_config(self, service_name: str) -> dict[str, Any]:
         """Generate global traffic management configuration."""
         return {
             "dns": {
@@ -521,7 +520,7 @@ class GlobalDeploymentManager:
                         "health_check": True,
                         "regions": {
                             region.value: f"{service_name}-{region.value}.elb.amazonaws.com"
-                            for region in self.regions.keys()
+                            for region in self.regions
                         }
                     }
                 ]
@@ -564,7 +563,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_compliance_config(self) -> Dict[str, Any]:
+    def _generate_compliance_config(self) -> dict[str, Any]:
         """Generate compliance configuration."""
         return {
             "gdpr": {
@@ -619,7 +618,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_global_monitoring_config(self, service_name: str) -> Dict[str, Any]:
+    def _generate_global_monitoring_config(self, service_name: str) -> dict[str, Any]:
         """Generate global monitoring configuration."""
         return {
             "prometheus": {
@@ -627,7 +626,7 @@ class GlobalDeploymentManager:
                 "federation": {
                     "enabled": True,
                     "scrape_interval": "30s",
-                    "regions": [region.value for region in self.regions.keys()]
+                    "regions": [region.value for region in self.regions]
                 },
                 "external_labels": {
                     "service": service_name,
@@ -658,7 +657,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_gdpr_config(self, service_name: str) -> Dict[str, Any]:
+    def _generate_gdpr_config(self, service_name: str) -> dict[str, Any]:
         """Generate GDPR-specific configuration."""
         return {
             "apiVersion": "v1",
@@ -676,7 +675,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_hipaa_config(self, service_name: str) -> Dict[str, Any]:
+    def _generate_hipaa_config(self, service_name: str) -> dict[str, Any]:
         """Generate HIPAA-specific configuration."""
         return {
             "apiVersion": "v1",
@@ -694,7 +693,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_network_policy(self, service_name: str, config: RegionConfig) -> Dict[str, Any]:
+    def _generate_network_policy(self, service_name: str, config: RegionConfig) -> dict[str, Any]:
         """Generate network policy for the region."""
         return {
             "apiVersion": "networking.k8s.io/v1",
@@ -736,7 +735,7 @@ class GlobalDeploymentManager:
             }
         }
     
-    def _generate_pdb(self, service_name: str, config: RegionConfig) -> Dict[str, Any]:
+    def _generate_pdb(self, service_name: str, config: RegionConfig) -> dict[str, Any]:
         """Generate Pod Disruption Budget."""
         return {
             "apiVersion": "policy/v1",
@@ -809,7 +808,7 @@ set -e
 echo "🌍 Deploying {service_name} globally..."
 
 # Deploy to all regions in parallel
-regions=("{' '.join([r.value for r in self.regions.keys() if self.regions[r].enabled])}")
+regions=("{' '.join([r.value for r in self.regions if self.regions[r].enabled])}")
 
 for region in "${{regions[@]}}"; do
     echo "📍 Deploying to $region..."
@@ -839,7 +838,7 @@ set -e
 
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <region>"
-    echo "Available regions: {', '.join([r.value for r in self.regions.keys()])}"
+    echo "Available regions: {', '.join([r.value for r in self.regions])}"
     exit 1
 fi
 
