@@ -1,4 +1,4 @@
-"""Circuit breaker pattern for fault tolerance."""
+"""Circuit breaker pattern for fault tolerance with quantum-inspired adaptive thresholds."""
 
 import logging
 import time
@@ -8,6 +8,8 @@ from enum import Enum
 from functools import wraps
 from threading import Lock
 from typing import Any
+
+import numpy as np
 
 
 class CircuitState(Enum):
@@ -23,14 +25,15 @@ class CircuitBreakerException(Exception):
 
 
 class CircuitBreaker:
-    """Circuit breaker implementation for fault tolerance."""
+    """Circuit breaker implementation for fault tolerance with quantum-inspired adaptation."""
     
     def __init__(
         self,
         failure_threshold: int = 5,
         timeout: float = 60.0,
         expected_exception: type = Exception,
-        success_threshold: int = 3
+        success_threshold: int = 3,
+        enable_quantum_adaptation: bool = True
     ):
         """Initialize circuit breaker.
         
@@ -39,11 +42,13 @@ class CircuitBreaker:
             timeout: Seconds to wait before transitioning to half-open
             expected_exception: Exception type that counts as failure
             success_threshold: Successes needed in half-open to close circuit
+            enable_quantum_adaptation: Enable quantum-inspired adaptive thresholds
         """
         self.failure_threshold = failure_threshold
         self.timeout = timeout
         self.expected_exception = expected_exception
         self.success_threshold = success_threshold
+        self.enable_quantum_adaptation = enable_quantum_adaptation
         
         self.failure_count = 0
         self.success_count = 0
@@ -51,7 +56,94 @@ class CircuitBreaker:
         self.state = CircuitState.CLOSED
         self.lock = Lock()
         
+        # Quantum-inspired adaptive parameters
+        self.failure_history = []  # Track failure patterns
+        self.response_time_history = []  # Track response times
+        self.adaptive_threshold = failure_threshold
+        self.quantum_coherence = 1.0  # Coherence measure for adaptation
+        self.entanglement_factor = 0.1  # Cross-correlation with system state
+        
         self.logger = logging.getLogger(__name__)
+    
+    def _update_quantum_parameters(self, success: bool, response_time: float = None):
+        """Update quantum-inspired parameters based on system behavior."""
+        
+        if not self.enable_quantum_adaptation:
+            return
+        
+        current_time = time.time()
+        
+        # Update failure history (keep last 50 events)
+        self.failure_history.append({
+            'timestamp': current_time,
+            'success': success,
+            'response_time': response_time
+        })
+        if len(self.failure_history) > 50:
+            self.failure_history.pop(0)
+        
+        # Track response times
+        if response_time is not None:
+            self.response_time_history.append(response_time)
+            if len(self.response_time_history) > 100:
+                self.response_time_history.pop(0)
+        
+        # Compute adaptive threshold using quantum-inspired algorithm
+        if len(self.failure_history) >= 10:
+            self._compute_adaptive_threshold()
+    
+    def _compute_adaptive_threshold(self):
+        """Compute adaptive threshold using quantum-inspired metrics."""
+        
+        # Analyze failure patterns
+        recent_failures = [
+            event for event in self.failure_history[-20:] 
+            if not event['success']
+        ]
+        failure_rate = len(recent_failures) / 20
+        
+        # Compute quantum coherence (system stability)
+        if self.response_time_history:
+            response_variance = np.var(self.response_time_history)
+            mean_response = np.mean(self.response_time_history)
+            
+            # High coherence = low variance = stable system
+            if mean_response > 0:
+                self.quantum_coherence = 1.0 / (1.0 + response_variance / mean_response)
+            else:
+                self.quantum_coherence = 0.5
+        
+        # Compute entanglement factor (correlation with failure patterns)
+        if len(recent_failures) > 1:
+            failure_times = [f['timestamp'] for f in recent_failures]
+            time_diffs = np.diff(failure_times)
+            if len(time_diffs) > 1:
+                # High entanglement = correlated failures
+                self.entanglement_factor = min(1.0, np.std(time_diffs) / np.mean(time_diffs))
+        
+        # Adaptive threshold using quantum-inspired formula
+        base_threshold = self.failure_threshold
+        
+        # Quantum tunneling effect: allow more failures when system is coherent
+        coherence_adjustment = self.quantum_coherence * 2.0
+        
+        # Entanglement effect: reduce threshold when failures are correlated
+        entanglement_adjustment = (1.0 - self.entanglement_factor) * 1.5
+        
+        # Failure rate momentum: adjust based on recent trend
+        momentum_adjustment = (1.0 - failure_rate) * 1.2
+        
+        self.adaptive_threshold = max(
+            2,  # Minimum threshold
+            int(base_threshold * coherence_adjustment * entanglement_adjustment * momentum_adjustment)
+        )
+        
+        self.logger.debug(
+            f"Adaptive threshold updated: {self.adaptive_threshold} "
+            f"(coherence={self.quantum_coherence:.3f}, "
+            f"entanglement={self.entanglement_factor:.3f}, "
+            f"failure_rate={failure_rate:.3f})"
+        )
     
     def _can_attempt_call(self) -> bool:
         """Check if call can be attempted based on current state."""

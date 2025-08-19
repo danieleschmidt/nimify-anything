@@ -260,7 +260,7 @@ class AdaptiveFusionOptimizer:
     
     def __init__(
         self,
-        model: AdaptiveFusionFusion,
+        model: AdaptiveAttentionFusion,
         learning_rate: float = 1e-3,
         weight_decay: float = 1e-4
     ):
@@ -394,7 +394,7 @@ class ResearchBenchmarkSuite:
     
     def run_comparative_study(
         self,
-        adaptive_model: AdaptiveFusionFusion,
+        adaptive_model: AdaptiveAttentionFusion,
         test_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
         metrics: list[str] = None
     ) -> dict[str, dict[str, float]]:
@@ -630,7 +630,7 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # Create model
-    model = AdaptiveFusionFusion(
+    model = AdaptiveAttentionFusion(
         neural_dim=256,
         olfactory_dim=128,
         hidden_dim=512,

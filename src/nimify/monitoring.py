@@ -1,4 +1,4 @@
-"""Advanced monitoring and observability system."""
+"""Advanced monitoring and observability system with research-integrated insights."""
 
 import asyncio
 import contextlib
@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import psutil
 
 logger = logging.getLogger(__name__)

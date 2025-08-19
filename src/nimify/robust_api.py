@@ -1,4 +1,4 @@
-"""Robust FastAPI application with error handling and circuit breaker."""
+"""Robust FastAPI application with error handling, circuit breaker, and research integration."""
 
 import time
 import uuid
@@ -26,6 +26,7 @@ from .logging_config import (
     log_performance_metric,
     setup_logging,
 )
+from .research_integration import ProductionResearchOrchestrator
 
 # Set up logging
 logger = setup_logging("nim-service-robust", log_level="INFO", enable_audit=True)
