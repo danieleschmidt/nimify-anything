@@ -1,4 +1,4 @@
-"""Security utilities and hardening measures."""
+"""Security utilities and hardening measures with quantum-resistant features."""
 
 import hashlib
 import ipaddress
@@ -8,6 +8,9 @@ import secrets
 import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

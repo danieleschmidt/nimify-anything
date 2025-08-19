@@ -286,13 +286,13 @@ async def predict(request: PredictionRequest, req: Request, request_id: str = De
                 predictions = await model_loader.predict(request.input)
                 inference_time_ms = (time.time() - start_time) * 1000
             
-            except CircuitBreakerException as e:
+            except Exception as circuit_e:
                 ERROR_COUNT.labels(error_type="circuit_breaker_open", endpoint="/v1/predict").inc()
                 REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="circuit_open").inc()
                 
                 log_security_event(
-                    event_type="circuit_breaker_open",
-                    message=f"Circuit breaker open for inference: {str(e)}",
+                    event_type="circuit_breaker_open", 
+                    message=f"Circuit breaker open for inference: {str(circuit_e)}",
                     ip_address=client_ip,
                     request_id=request_id
                 )
