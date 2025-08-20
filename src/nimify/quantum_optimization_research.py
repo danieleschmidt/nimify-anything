@@ -17,9 +17,15 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-import torch
-import torch.nn as nn
 from scipy.optimize import minimize
+
+# Optional PyTorch import
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -128,10 +134,18 @@ class QuantumAnnealingOptimizer(QuantumInspiredOptimizer):
         phases = np.random.uniform(0, 2 * np.pi, len(parameters))
         
         # Compute entanglement entropy (parameter correlation)
-        param_corr = np.corrcoef(parameters.reshape(-1, 1).T)[0, 0]
+        if len(parameters) > 1:
+            corr_matrix = np.corrcoef(parameters.reshape(1, -1))
+            if corr_matrix.ndim > 0:
+                param_corr = corr_matrix[0, 0] if corr_matrix.ndim == 2 else corr_matrix.item()
+            else:
+                param_corr = 0.0
+        else:
+            param_corr = 1.0
+        
         if np.isnan(param_corr):
             param_corr = 0.0
-        entanglement_entropy = -param_corr * np.log(abs(param_corr) + 1e-8)
+        entanglement_entropy = -abs(param_corr) * np.log(abs(param_corr) + 1e-8)
         
         # Coherence measure (parameter stability)
         coherence_measure = 1.0 / (1.0 + np.var(parameters))
@@ -195,7 +209,7 @@ class QuantumAnnealingOptimizer(QuantumInspiredOptimizer):
             weights = exp_weights / np.sum(exp_weights)
         
         # Weighted combination of state amplitudes
-        superposition = np.zeros_like(states[0].amplitudes)
+        superposition = np.zeros(len(states[0].amplitudes), dtype=complex)
         
         for i, state in enumerate(states):
             # Include phase information
@@ -503,11 +517,11 @@ class QuantumInspiredModelOptimizer:
     
     def optimize_model(
         self,
-        model: nn.Module,
-        train_loader: torch.utils.data.DataLoader,
+        model: Any,  # nn.Module when torch is available
+        train_loader: Any,  # torch.utils.data.DataLoader when available
         loss_function: Callable,
         max_iterations: int = 100
-    ) -> tuple[nn.Module, dict[str, Any]]:
+    ) -> tuple[Any, dict[str, Any]]:
         """Optimize neural network using quantum-inspired algorithms."""
         
         # Convert model parameters to flat array
@@ -884,3 +898,555 @@ if __name__ == "__main__":
     print(f"   Convergence rate: {stats['convergence_rate']:.4f}")
     
     print("\n✅ Quantum optimization research module validated!")
+
+
+class VariationalQuantumOptimizer(QuantumInspiredOptimizer):
+    """Variational Quantum Eigensolver (VQE) inspired optimization algorithm.
+    
+    Implements ansatz-based variational optimization with quantum circuit simulation
+    for enhanced exploration of parameter landscapes.
+    """
+    
+    def __init__(
+        self,
+        num_layers: int = 3,
+        ansatz_type: str = "efficient_su2",
+        max_iterations: int = 1000,
+        learning_rate: float = 0.01,
+        measurement_shots: int = 1024
+    ):
+        self.num_layers = num_layers
+        self.ansatz_type = ansatz_type
+        self.max_iterations = max_iterations
+        self.learning_rate = learning_rate
+        self.measurement_shots = measurement_shots
+        
+        # VQE-specific parameters
+        self.circuit_depth = num_layers * 2  # Each layer has rotation + entanglement
+        self.parameter_count = 0  # Will be set based on problem size
+        self.expectation_values = []
+        
+    def _create_quantum_ansatz(self, num_qubits: int) -> dict:
+        """Create parameterized quantum circuit ansatz."""
+        
+        # Calculate number of parameters needed
+        if self.ansatz_type == "efficient_su2":
+            # Each qubit has 3 rotation parameters per layer + entanglement
+            params_per_layer = num_qubits * 3
+            total_params = params_per_layer * self.num_layers
+        elif self.ansatz_type == "two_local":
+            # More efficient ansatz for optimization
+            params_per_layer = num_qubits * 2
+            total_params = params_per_layer * self.num_layers
+        else:
+            raise ValueError(f"Unknown ansatz type: {self.ansatz_type}")
+        
+        self.parameter_count = total_params
+        
+        # Create circuit structure (gate sequence)
+        circuit = {
+            'num_qubits': num_qubits,
+            'num_parameters': total_params,
+            'gate_sequence': [],
+            'entanglement_pattern': 'circular'  # Circular entanglement
+        }
+        
+        # Build gate sequence
+        param_idx = 0
+        for layer in range(self.num_layers):
+            # Rotation gates for each qubit
+            for qubit in range(num_qubits):
+                if self.ansatz_type == "efficient_su2":
+                    circuit['gate_sequence'].extend([
+                        ('RX', qubit, param_idx),
+                        ('RY', qubit, param_idx + 1),
+                        ('RZ', qubit, param_idx + 2)
+                    ])
+                    param_idx += 3
+                elif self.ansatz_type == "two_local":
+                    circuit['gate_sequence'].extend([
+                        ('RY', qubit, param_idx),
+                        ('RZ', qubit, param_idx + 1)
+                    ])
+                    param_idx += 2
+            
+            # Entanglement gates (CNOT chain)
+            for qubit in range(num_qubits):
+                target = (qubit + 1) % num_qubits
+                circuit['gate_sequence'].append(('CNOT', qubit, target))
+        
+        return circuit
+    
+    def _simulate_quantum_circuit(
+        self,
+        circuit: dict,
+        parameters: np.ndarray,
+        observable: np.ndarray
+    ) -> float:
+        """Simulate quantum circuit execution and measure expectation value."""
+        
+        num_qubits = circuit['num_qubits']
+        
+        # Initialize quantum state |0...0>
+        state_vector = np.zeros(2**num_qubits, dtype=complex)
+        state_vector[0] = 1.0  # |00...0> state
+        
+        # Apply parametrized gates
+        for gate_info in circuit['gate_sequence']:
+            if len(gate_info) == 3:  # Parameterized gate
+                gate_type, qubit, param_idx = gate_info
+                if param_idx < len(parameters):
+                    theta = parameters[param_idx]
+                    state_vector = self._apply_gate(
+                        state_vector, gate_type, qubit, theta, num_qubits
+                    )
+            else:  # Two-qubit gate
+                gate_type, control, target = gate_info
+                state_vector = self._apply_two_qubit_gate(
+                    state_vector, gate_type, control, target, num_qubits
+                )
+        
+        # Compute expectation value <psi|H|psi>
+        expectation = np.real(
+            np.conj(state_vector).T @ observable @ state_vector
+        )
+        
+        # Add measurement noise (simulate real quantum hardware)
+        noise_std = 1.0 / np.sqrt(self.measurement_shots)
+        expectation += np.random.normal(0, noise_std)
+        
+        return expectation
+    
+    def _apply_gate(
+        self,
+        state: np.ndarray,
+        gate_type: str,
+        qubit: int,
+        theta: float,
+        num_qubits: int
+    ) -> np.ndarray:
+        """Apply single-qubit parameterized gate to quantum state."""
+        
+        # Create rotation matrices
+        if gate_type == "RX":
+            gate_matrix = np.array([
+                [np.cos(theta/2), -1j*np.sin(theta/2)],
+                [-1j*np.sin(theta/2), np.cos(theta/2)]
+            ], dtype=complex)
+        elif gate_type == "RY":
+            gate_matrix = np.array([
+                [np.cos(theta/2), -np.sin(theta/2)],
+                [np.sin(theta/2), np.cos(theta/2)]
+            ], dtype=complex)
+        elif gate_type == "RZ":
+            gate_matrix = np.array([
+                [np.exp(-1j*theta/2), 0],
+                [0, np.exp(1j*theta/2)]
+            ], dtype=complex)
+        else:
+            raise ValueError(f"Unknown gate type: {gate_type}")
+        
+        # Construct full system gate (tensor product)
+        full_gate = np.eye(1, dtype=complex)
+        for i in range(num_qubits):
+            if i == qubit:
+                full_gate = np.kron(full_gate, gate_matrix)
+            else:
+                full_gate = np.kron(full_gate, np.eye(2, dtype=complex))
+        
+        return full_gate @ state
+    
+    def _apply_two_qubit_gate(
+        self,
+        state: np.ndarray,
+        gate_type: str,
+        control: int,
+        target: int,
+        num_qubits: int
+    ) -> np.ndarray:
+        """Apply two-qubit gate to quantum state."""
+        
+        if gate_type == "CNOT":
+            # Create CNOT matrix for full system
+            dim = 2**num_qubits
+            gate_matrix = np.eye(dim, dtype=complex)
+            
+            # Apply CNOT logic for all computational basis states
+            for i in range(dim):
+                # Convert to binary representation
+                binary = format(i, f'0{num_qubits}b')
+                bits = [int(b) for b in binary]
+                
+                # Apply CNOT: if control is 1, flip target
+                if bits[control] == 1:
+                    bits[target] = 1 - bits[target]
+                
+                # Convert back to decimal
+                new_i = int(''.join(map(str, bits)), 2)
+                
+                # Swap matrix rows if needed
+                if new_i != i:
+                    gate_matrix[i, i] = 0
+                    gate_matrix[i, new_i] = 1
+        
+        return gate_matrix @ state
+    
+    def _create_hamiltonian_observable(self, objective_function: Callable, num_qubits: int) -> np.ndarray:
+        """Create Hamiltonian observable for the optimization problem."""
+        
+        # For optimization problems, create a diagonal Hamiltonian
+        # where eigenvalues correspond to objective function values
+        dim = 2**num_qubits
+        hamiltonian = np.zeros((dim, dim), dtype=complex)
+        
+        # Evaluate objective at all computational basis states
+        for i in range(dim):
+            # Map computational basis state to continuous parameters
+            # Simple encoding: binary to normalized coordinates
+            binary = format(i, f'0{num_qubits}b')
+            coords = np.array([int(b) for b in binary], dtype=float)
+            coords = 2.0 * coords - 1.0  # Map [0,1] to [-1,1]
+            
+            # Evaluate objective and set as eigenvalue
+            try:
+                energy = objective_function(coords)
+                hamiltonian[i, i] = energy
+            except:
+                hamiltonian[i, i] = 1e6  # Large penalty for invalid points
+        
+        return hamiltonian
+    
+    def optimize(
+        self,
+        objective_function: Callable,
+        initial_params: np.ndarray,
+        constraints: dict | None = None
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
+        """VQE-inspired variational optimization."""
+        
+        # Determine number of qubits needed
+        param_dim = len(initial_params)
+        num_qubits = max(2, int(np.ceil(np.log2(param_dim))))
+        
+        # Create quantum circuit ansatz
+        circuit = self._create_quantum_ansatz(num_qubits)
+        
+        # Create Hamiltonian observable
+        hamiltonian = self._create_hamiltonian_observable(objective_function, num_qubits)
+        
+        # Initialize variational parameters
+        variational_params = np.random.uniform(
+            0, 2*np.pi, circuit['num_parameters']
+        )
+        
+        best_params = initial_params.copy()
+        best_energy = objective_function(initial_params)
+        
+        optimization_history = []
+        
+        for iteration in range(self.max_iterations):
+            # Compute expectation value via quantum simulation
+            expectation = self._simulate_quantum_circuit(
+                circuit, variational_params, hamiltonian
+            )
+            
+            # Parameter shift rule for gradient estimation
+            gradient = np.zeros_like(variational_params)
+            for i in range(len(variational_params)):
+                # Forward shift
+                params_plus = variational_params.copy()
+                params_plus[i] += np.pi/2
+                expectation_plus = self._simulate_quantum_circuit(
+                    circuit, params_plus, hamiltonian
+                )
+                
+                # Backward shift
+                params_minus = variational_params.copy()
+                params_minus[i] -= np.pi/2
+                expectation_minus = self._simulate_quantum_circuit(
+                    circuit, params_minus, hamiltonian
+                )
+                
+                # Parameter shift gradient
+                gradient[i] = 0.5 * (expectation_plus - expectation_minus)
+            
+            # Update variational parameters
+            variational_params -= self.learning_rate * gradient
+            
+            # Map quantum circuit result back to original parameter space
+            # This is a simplified mapping - in practice would be more sophisticated
+            if expectation < best_energy:
+                best_energy = expectation
+                # Update best_params based on variational_params
+                # Simple mapping for demonstration
+                param_scale = np.linalg.norm(initial_params)
+                normalized_vars = variational_params / (2*np.pi)
+                best_params = param_scale * normalized_vars[:len(best_params)]
+            
+            # Track progress
+            optimization_history.append({
+                'iteration': iteration,
+                'expectation': expectation,
+                'gradient_norm': np.linalg.norm(gradient),
+                'variational_params': variational_params.copy()
+            })
+            
+            # Convergence check
+            if iteration > 10 and len(optimization_history) >= 5:
+                recent_energies = [h['expectation'] for h in optimization_history[-5:]]
+                if np.std(recent_energies) < 1e-6:
+                    break
+        
+        # Final statistics
+        stats = {
+            'iterations': len(optimization_history),
+            'final_expectation': expectation,
+            'convergence_rate': np.std([h['expectation'] for h in optimization_history[-10:]]),
+            'quantum_circuit_depth': self.circuit_depth,
+            'measurement_shots': self.measurement_shots,
+            'optimization_history': optimization_history
+        }
+        
+        return best_params, best_energy, stats
+
+
+class QAOAInspiredOptimizer(QuantumInspiredOptimizer):
+    """Quantum Approximate Optimization Algorithm (QAOA) inspired optimizer.
+    
+    Implements alternating operator ansatz for combinatorial optimization problems.
+    """
+    
+    def __init__(
+        self,
+        num_layers: int = 3,
+        max_iterations: int = 500,
+        learning_rate: float = 0.1
+    ):
+        self.num_layers = num_layers
+        self.max_iterations = max_iterations
+        self.learning_rate = learning_rate
+        
+        # QAOA-specific parameters
+        self.gamma_params = np.random.uniform(0, 2*np.pi, num_layers)  # Problem Hamiltonian
+        self.beta_params = np.random.uniform(0, np.pi, num_layers)     # Mixer Hamiltonian
+        
+    def _apply_problem_hamiltonian(
+        self,
+        state: np.ndarray,
+        gamma: float,
+        objective_function: Callable,
+        num_qubits: int
+    ) -> np.ndarray:
+        """Apply problem Hamiltonian evolution exp(-i*gamma*H_C)."""
+        
+        # For optimization, H_C encodes the objective function
+        evolved_state = state.copy()
+        
+        # Apply phase shifts based on objective function values
+        for i in range(len(state)):
+            # Map basis state to parameter coordinates
+            binary = format(i, f'0{num_qubits}b')
+            coords = np.array([int(b) for b in binary], dtype=float)
+            coords = 2.0 * coords - 1.0  # Normalize to [-1,1]
+            
+            try:
+                energy = objective_function(coords)
+                phase = np.exp(-1j * gamma * energy)
+                evolved_state[i] *= phase
+            except:
+                # Invalid point - apply large phase penalty
+                evolved_state[i] *= np.exp(-1j * gamma * 1e6)
+        
+        return evolved_state
+    
+    def _apply_mixer_hamiltonian(
+        self,
+        state: np.ndarray,
+        beta: float,
+        num_qubits: int
+    ) -> np.ndarray:
+        """Apply mixer Hamiltonian evolution exp(-i*beta*H_B)."""
+        
+        # H_B = sum of X gates (bit flip operations)
+        evolved_state = state.copy()
+        
+        for qubit in range(num_qubits):
+            # Apply RX rotation to each qubit
+            evolved_state = self._apply_rx_gate(evolved_state, qubit, 2*beta, num_qubits)
+        
+        return evolved_state
+    
+    def _apply_rx_gate(
+        self,
+        state: np.ndarray,
+        target_qubit: int,
+        theta: float,
+        num_qubits: int
+    ) -> np.ndarray:
+        """Apply RX gate to target qubit."""
+        
+        # RX gate matrix
+        cos_half = np.cos(theta/2)
+        sin_half = np.sin(theta/2)
+        
+        new_state = np.zeros_like(state)
+        
+        for i in range(len(state)):
+            # Get bit configuration
+            bits = [(i >> qubit) & 1 for qubit in range(num_qubits)]
+            
+            # Apply RX to target qubit
+            if bits[target_qubit] == 0:
+                # |0> component
+                new_state[i] += cos_half * state[i]
+                # |1> component (flip target bit)
+                flipped_i = i ^ (1 << target_qubit)
+                new_state[flipped_i] += -1j * sin_half * state[i]
+            else:
+                # |1> component  
+                new_state[i] += cos_half * state[i]
+                # |0> component (flip target bit)
+                flipped_i = i ^ (1 << target_qubit)
+                new_state[flipped_i] += -1j * sin_half * state[i]
+        
+        return new_state
+    
+    def optimize(
+        self,
+        objective_function: Callable,
+        initial_params: np.ndarray,
+        constraints: dict | None = None
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
+        """QAOA-inspired optimization using alternating operator ansatz."""
+        
+        # Determine number of qubits
+        param_dim = len(initial_params)
+        num_qubits = max(2, int(np.ceil(np.log2(param_dim))))
+        
+        best_params = initial_params.copy()
+        best_energy = objective_function(initial_params)
+        
+        optimization_history = []
+        
+        for iteration in range(self.max_iterations):
+            # Initialize uniform superposition |+>
+            state = np.ones(2**num_qubits, dtype=complex) / np.sqrt(2**num_qubits)
+            
+            # Apply QAOA circuit: alternating problem and mixer Hamiltonians
+            for layer in range(self.num_layers):
+                # Problem Hamiltonian (encodes objective function)
+                state = self._apply_problem_hamiltonian(
+                    state, self.gamma_params[layer], objective_function, num_qubits
+                )
+                
+                # Mixer Hamiltonian (enables state transitions)
+                state = self._apply_mixer_hamiltonian(
+                    state, self.beta_params[layer], num_qubits
+                )
+            
+            # Measure expectation value
+            expectation = 0.0
+            for i in range(len(state)):
+                probability = abs(state[i])**2
+                # Map basis state to coordinates
+                binary = format(i, f'0{num_qubits}b')
+                coords = np.array([int(b) for b in binary], dtype=float)
+                coords = 2.0 * coords - 1.0
+                
+                try:
+                    energy = objective_function(coords)
+                    expectation += probability * energy
+                except:
+                    expectation += probability * 1e6
+            
+            # Update best solution if improved
+            if expectation < best_energy:
+                best_energy = expectation
+                # Find most probable state and map to parameters
+                max_prob_idx = np.argmax(abs(state)**2)
+                binary = format(max_prob_idx, f'0{num_qubits}b')
+                coords = np.array([int(b) for b in binary], dtype=float)
+                coords = 2.0 * coords - 1.0
+                best_params = coords[:len(initial_params)]
+            
+            # Gradient estimation using parameter shift rule
+            gamma_gradient = np.zeros(self.num_layers)
+            beta_gradient = np.zeros(self.num_layers)
+            
+            for layer in range(self.num_layers):
+                # Gamma gradient
+                self.gamma_params[layer] += np.pi/2
+                exp_plus = self._compute_qaoa_expectation(objective_function, num_qubits)
+                self.gamma_params[layer] -= np.pi
+                exp_minus = self._compute_qaoa_expectation(objective_function, num_qubits)
+                self.gamma_params[layer] += np.pi/2  # Reset
+                gamma_gradient[layer] = 0.5 * (exp_plus - exp_minus)
+                
+                # Beta gradient
+                self.beta_params[layer] += np.pi/2
+                exp_plus = self._compute_qaoa_expectation(objective_function, num_qubits)
+                self.beta_params[layer] -= np.pi
+                exp_minus = self._compute_qaoa_expectation(objective_function, num_qubits)
+                self.beta_params[layer] += np.pi/2  # Reset
+                beta_gradient[layer] = 0.5 * (exp_plus - exp_minus)
+            
+            # Update QAOA parameters
+            self.gamma_params -= self.learning_rate * gamma_gradient
+            self.beta_params -= self.learning_rate * beta_gradient
+            
+            # Track progress
+            optimization_history.append({
+                'iteration': iteration,
+                'expectation': expectation,
+                'gamma_params': self.gamma_params.copy(),
+                'beta_params': self.beta_params.copy()
+            })
+            
+            # Convergence check
+            if iteration > 20 and len(optimization_history) >= 10:
+                recent_expectations = [h['expectation'] for h in optimization_history[-10:]]
+                if np.std(recent_expectations) < 1e-6:
+                    break
+        
+        # Final statistics
+        stats = {
+            'iterations': len(optimization_history),
+            'final_expectation': expectation,
+            'num_layers': self.num_layers,
+            'final_gamma': self.gamma_params,
+            'final_beta': self.beta_params,
+            'optimization_history': optimization_history
+        }
+        
+        return best_params, best_energy, stats
+    
+    def _compute_qaoa_expectation(self, objective_function: Callable, num_qubits: int) -> float:
+        """Helper method to compute QAOA expectation value."""
+        
+        # Initialize uniform superposition
+        state = np.ones(2**num_qubits, dtype=complex) / np.sqrt(2**num_qubits)
+        
+        # Apply QAOA circuit
+        for layer in range(self.num_layers):
+            state = self._apply_problem_hamiltonian(
+                state, self.gamma_params[layer], objective_function, num_qubits
+            )
+            state = self._apply_mixer_hamiltonian(
+                state, self.beta_params[layer], num_qubits
+            )
+        
+        # Compute expectation
+        expectation = 0.0
+        for i in range(len(state)):
+            probability = abs(state[i])**2
+            binary = format(i, f'0{num_qubits}b')
+            coords = np.array([int(b) for b in binary], dtype=float)
+            coords = 2.0 * coords - 1.0
+            
+            try:
+                energy = objective_function(coords)
+                expectation += probability * energy
+            except:
+                expectation += probability * 1e6
+        
+        return expectation
