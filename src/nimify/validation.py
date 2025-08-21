@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -222,8 +222,9 @@ class RequestValidator(BaseModel):
         max_items=64  # Maximum batch size
     )
     
-    @validator('input')
-    def validate_input_dimensions(self, v):
+    @field_validator('input')
+    @classmethod
+    def validate_input_dimensions(cls, v):
         """Validate input tensor dimensions."""
         if not v:
             raise ValueError("Input cannot be empty")
