@@ -1,0 +1,943 @@
+{
+  "deployment_result": {
+    "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb",
+    "service_name": "nimify-llm-service",
+    "total_regions": 6,
+    "successful_deployments": 6,
+    "failed_deployments": 0,
+    "deployment_start_time": 1755868146.8989992,
+    "regional_results": {
+      "us-east-1": {
+        "region": "us-east-1",
+        "status": "success",
+        "deployment": "RegionalDeployment(deployment_id='22e1ad41-e085-4283-8bc9-a898a8fa3dfb-us-east-1', region=<DeploymentRegion.US_EAST_1: 'us-east-1'>, status=<DeploymentStatus.ACTIVE: 'active'>, replicas=2, target_replicas=2, cpu_utilization=41.866153678476934, gpu_utilization=85.58414263799423, memory_utilization=58.0238877488451, requests_per_second=61.85103780828032, latency_p50=0.0, latency_p95=83.56497164753462, latency_p99=0.0, error_rate=0.0008344490312901994, last_update=1755868150.4085388, health_score=0.99, deployment_time=1.502753496170044, traffic_percentage=0.0, active_connections=0)",
+        "manifests": {
+          "deployment": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+              "name": "nimify-llm-service-us-east-1",
+              "namespace": "nim-services",
+              "labels": {
+                "app": "nimify-llm-service",
+                "region": "us-east-1",
+                "deployment-id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-us-east-1"
+              }
+            },
+            "spec": {
+              "replicas": 2,
+              "selector": {
+                "matchLabels": {
+                  "app": "nimify-llm-service",
+                  "region": "us-east-1"
+                }
+              },
+              "template": {
+                "metadata": {
+                  "labels": {
+                    "app": "nimify-llm-service",
+                    "region": "us-east-1"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {
+                      "name": "nimify-llm-service",
+                      "image": "nimify-llm-service:latest",
+                      "ports": [
+                        {
+                          "containerPort": 8000
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "1Gi",
+                          "nvidia.com/gpu": "1"
+                        },
+                        "limits": {
+                          "cpu": "2",
+                          "memory": "4Gi",
+                          "nvidia.com/gpu": "1"
+                        }
+                      },
+                      "livenessProbe": {
+                        "httpGet": {
+                          "path": "/health",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10
+                      },
+                      "readinessProbe": {
+                        "httpGet": {
+                          "path": "/ready",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 5,
+                        "periodSeconds": 5
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "service": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+              "name": "nimify-llm-service-us-east-1",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "selector": {
+                "app": "nimify-llm-service",
+                "region": "us-east-1"
+              },
+              "ports": [
+                {
+                  "port": 80,
+                  "targetPort": 8000
+                }
+              ],
+              "type": "LoadBalancer"
+            }
+          },
+          "hpa": {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+              "name": "nimify-llm-service-us-east-1-hpa",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "nimify-llm-service-us-east-1"
+              },
+              "minReplicas": 2,
+              "maxReplicas": 25,
+              "metrics": [
+                {
+                  "type": "Resource",
+                  "resource": {
+                    "name": "cpu",
+                    "target": {
+                      "type": "Utilization",
+                      "averageUtilization": 70
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "deployment_time": 1.502753496170044
+      },
+      "us-west-2": {
+        "region": "us-west-2",
+        "status": "success",
+        "deployment": "RegionalDeployment(deployment_id='22e1ad41-e085-4283-8bc9-a898a8fa3dfb-us-west-2', region=<DeploymentRegion.US_WEST_2: 'us-west-2'>, status=<DeploymentStatus.ACTIVE: 'active'>, replicas=2, target_replicas=2, cpu_utilization=55.30625048092263, gpu_utilization=73.07641604834413, memory_utilization=79.67312190944666, requests_per_second=41.565463190191494, latency_p50=0.0, latency_p95=101.44336649701968, latency_p99=0.0, error_rate=0.003718725300937664, last_update=1755868150.4085453, health_score=0.98, deployment_time=1.5027432441711426, traffic_percentage=0.0, active_connections=0)",
+        "manifests": {
+          "deployment": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+              "name": "nimify-llm-service-us-west-2",
+              "namespace": "nim-services",
+              "labels": {
+                "app": "nimify-llm-service",
+                "region": "us-west-2",
+                "deployment-id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-us-west-2"
+              }
+            },
+            "spec": {
+              "replicas": 2,
+              "selector": {
+                "matchLabels": {
+                  "app": "nimify-llm-service",
+                  "region": "us-west-2"
+                }
+              },
+              "template": {
+                "metadata": {
+                  "labels": {
+                    "app": "nimify-llm-service",
+                    "region": "us-west-2"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {
+                      "name": "nimify-llm-service",
+                      "image": "nimify-llm-service:latest",
+                      "ports": [
+                        {
+                          "containerPort": 8000
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "1Gi",
+                          "nvidia.com/gpu": "1"
+                        },
+                        "limits": {
+                          "cpu": "2",
+                          "memory": "4Gi",
+                          "nvidia.com/gpu": "1"
+                        }
+                      },
+                      "livenessProbe": {
+                        "httpGet": {
+                          "path": "/health",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10
+                      },
+                      "readinessProbe": {
+                        "httpGet": {
+                          "path": "/ready",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 5,
+                        "periodSeconds": 5
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "service": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+              "name": "nimify-llm-service-us-west-2",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "selector": {
+                "app": "nimify-llm-service",
+                "region": "us-west-2"
+              },
+              "ports": [
+                {
+                  "port": 80,
+                  "targetPort": 8000
+                }
+              ],
+              "type": "LoadBalancer"
+            }
+          },
+          "hpa": {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+              "name": "nimify-llm-service-us-west-2-hpa",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "nimify-llm-service-us-west-2"
+              },
+              "minReplicas": 2,
+              "maxReplicas": 25,
+              "metrics": [
+                {
+                  "type": "Resource",
+                  "resource": {
+                    "name": "cpu",
+                    "target": {
+                      "type": "Utilization",
+                      "averageUtilization": 70
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "deployment_time": 1.5027432441711426
+      },
+      "eu-west-1": {
+        "region": "eu-west-1",
+        "status": "success",
+        "deployment": "RegionalDeployment(deployment_id='22e1ad41-e085-4283-8bc9-a898a8fa3dfb-eu-west-1', region=<DeploymentRegion.EU_WEST_1: 'eu-west-1'>, status=<DeploymentStatus.ACTIVE: 'active'>, replicas=2, target_replicas=2, cpu_utilization=51.60220513375223, gpu_utilization=78.74401021539464, memory_utilization=62.80313976492398, requests_per_second=66.83420394219526, latency_p50=0.0, latency_p95=97.97570736731852, latency_p99=0.0, error_rate=0, last_update=1755868150.4085522, health_score=0.98, deployment_time=1.5027453899383545, traffic_percentage=0.0, active_connections=0)",
+        "manifests": {
+          "deployment": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+              "name": "nimify-llm-service-eu-west-1",
+              "namespace": "nim-services",
+              "labels": {
+                "app": "nimify-llm-service",
+                "region": "eu-west-1",
+                "deployment-id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-eu-west-1"
+              }
+            },
+            "spec": {
+              "replicas": 2,
+              "selector": {
+                "matchLabels": {
+                  "app": "nimify-llm-service",
+                  "region": "eu-west-1"
+                }
+              },
+              "template": {
+                "metadata": {
+                  "labels": {
+                    "app": "nimify-llm-service",
+                    "region": "eu-west-1"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {
+                      "name": "nimify-llm-service",
+                      "image": "nimify-llm-service:latest",
+                      "ports": [
+                        {
+                          "containerPort": 8000
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "1Gi",
+                          "nvidia.com/gpu": "1"
+                        },
+                        "limits": {
+                          "cpu": "2",
+                          "memory": "4Gi",
+                          "nvidia.com/gpu": "1"
+                        }
+                      },
+                      "livenessProbe": {
+                        "httpGet": {
+                          "path": "/health",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10
+                      },
+                      "readinessProbe": {
+                        "httpGet": {
+                          "path": "/ready",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 5,
+                        "periodSeconds": 5
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "service": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+              "name": "nimify-llm-service-eu-west-1",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "selector": {
+                "app": "nimify-llm-service",
+                "region": "eu-west-1"
+              },
+              "ports": [
+                {
+                  "port": 80,
+                  "targetPort": 8000
+                }
+              ],
+              "type": "LoadBalancer"
+            }
+          },
+          "hpa": {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+              "name": "nimify-llm-service-eu-west-1-hpa",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "nimify-llm-service-eu-west-1"
+              },
+              "minReplicas": 2,
+              "maxReplicas": 25,
+              "metrics": [
+                {
+                  "type": "Resource",
+                  "resource": {
+                    "name": "cpu",
+                    "target": {
+                      "type": "Utilization",
+                      "averageUtilization": 70
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "deployment_time": 1.5027453899383545
+      },
+      "eu-central-1": {
+        "region": "eu-central-1",
+        "status": "success",
+        "deployment": "RegionalDeployment(deployment_id='22e1ad41-e085-4283-8bc9-a898a8fa3dfb-eu-central-1', region=<DeploymentRegion.EU_CENTRAL_1: 'eu-central-1'>, status=<DeploymentStatus.ACTIVE: 'active'>, replicas=2, target_replicas=2, cpu_utilization=48.964713563349754, gpu_utilization=82.15118364354497, memory_utilization=65.84935954656537, requests_per_second=60.4613260263031, latency_p50=0.0, latency_p95=82.70807406315636, latency_p99=0.0, error_rate=0.0009817745949719026, last_update=1755868150.4085577, health_score=0.97, deployment_time=1.5027425289154053, traffic_percentage=0.0, active_connections=0)",
+        "manifests": {
+          "deployment": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+              "name": "nimify-llm-service-eu-central-1",
+              "namespace": "nim-services",
+              "labels": {
+                "app": "nimify-llm-service",
+                "region": "eu-central-1",
+                "deployment-id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-eu-central-1"
+              }
+            },
+            "spec": {
+              "replicas": 2,
+              "selector": {
+                "matchLabels": {
+                  "app": "nimify-llm-service",
+                  "region": "eu-central-1"
+                }
+              },
+              "template": {
+                "metadata": {
+                  "labels": {
+                    "app": "nimify-llm-service",
+                    "region": "eu-central-1"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {
+                      "name": "nimify-llm-service",
+                      "image": "nimify-llm-service:latest",
+                      "ports": [
+                        {
+                          "containerPort": 8000
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "1Gi",
+                          "nvidia.com/gpu": "1"
+                        },
+                        "limits": {
+                          "cpu": "2",
+                          "memory": "4Gi",
+                          "nvidia.com/gpu": "1"
+                        }
+                      },
+                      "livenessProbe": {
+                        "httpGet": {
+                          "path": "/health",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10
+                      },
+                      "readinessProbe": {
+                        "httpGet": {
+                          "path": "/ready",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 5,
+                        "periodSeconds": 5
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "service": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+              "name": "nimify-llm-service-eu-central-1",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "selector": {
+                "app": "nimify-llm-service",
+                "region": "eu-central-1"
+              },
+              "ports": [
+                {
+                  "port": 80,
+                  "targetPort": 8000
+                }
+              ],
+              "type": "LoadBalancer"
+            }
+          },
+          "hpa": {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+              "name": "nimify-llm-service-eu-central-1-hpa",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "nimify-llm-service-eu-central-1"
+              },
+              "minReplicas": 2,
+              "maxReplicas": 25,
+              "metrics": [
+                {
+                  "type": "Resource",
+                  "resource": {
+                    "name": "cpu",
+                    "target": {
+                      "type": "Utilization",
+                      "averageUtilization": 70
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "deployment_time": 1.5027425289154053
+      },
+      "ap-southeast-1": {
+        "region": "ap-southeast-1",
+        "status": "success",
+        "deployment": "RegionalDeployment(deployment_id='22e1ad41-e085-4283-8bc9-a898a8fa3dfb-ap-southeast-1', region=<DeploymentRegion.AP_SOUTHEAST_1: 'ap-southeast-1'>, status=<DeploymentStatus.ACTIVE: 'active'>, replicas=2, target_replicas=2, cpu_utilization=55.89475925765321, gpu_utilization=71.17974209731422, memory_utilization=65.24464094429403, requests_per_second=64.56057826273324, latency_p50=0.0, latency_p95=98.82865165431643, latency_p99=0.0, error_rate=0.003764892576756982, last_update=1755868150.4085624, health_score=0.97, deployment_time=1.5027434825897217, traffic_percentage=0.0, active_connections=0)",
+        "manifests": {
+          "deployment": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+              "name": "nimify-llm-service-ap-southeast-1",
+              "namespace": "nim-services",
+              "labels": {
+                "app": "nimify-llm-service",
+                "region": "ap-southeast-1",
+                "deployment-id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-ap-southeast-1"
+              }
+            },
+            "spec": {
+              "replicas": 2,
+              "selector": {
+                "matchLabels": {
+                  "app": "nimify-llm-service",
+                  "region": "ap-southeast-1"
+                }
+              },
+              "template": {
+                "metadata": {
+                  "labels": {
+                    "app": "nimify-llm-service",
+                    "region": "ap-southeast-1"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {
+                      "name": "nimify-llm-service",
+                      "image": "nimify-llm-service:latest",
+                      "ports": [
+                        {
+                          "containerPort": 8000
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "1Gi",
+                          "nvidia.com/gpu": "1"
+                        },
+                        "limits": {
+                          "cpu": "2",
+                          "memory": "4Gi",
+                          "nvidia.com/gpu": "1"
+                        }
+                      },
+                      "livenessProbe": {
+                        "httpGet": {
+                          "path": "/health",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10
+                      },
+                      "readinessProbe": {
+                        "httpGet": {
+                          "path": "/ready",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 5,
+                        "periodSeconds": 5
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "service": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+              "name": "nimify-llm-service-ap-southeast-1",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "selector": {
+                "app": "nimify-llm-service",
+                "region": "ap-southeast-1"
+              },
+              "ports": [
+                {
+                  "port": 80,
+                  "targetPort": 8000
+                }
+              ],
+              "type": "LoadBalancer"
+            }
+          },
+          "hpa": {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+              "name": "nimify-llm-service-ap-southeast-1-hpa",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "nimify-llm-service-ap-southeast-1"
+              },
+              "minReplicas": 2,
+              "maxReplicas": 25,
+              "metrics": [
+                {
+                  "type": "Resource",
+                  "resource": {
+                    "name": "cpu",
+                    "target": {
+                      "type": "Utilization",
+                      "averageUtilization": 70
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "deployment_time": 1.5027434825897217
+      },
+      "ap-northeast-1": {
+        "region": "ap-northeast-1",
+        "status": "success",
+        "deployment": "RegionalDeployment(deployment_id='22e1ad41-e085-4283-8bc9-a898a8fa3dfb-ap-northeast-1', region=<DeploymentRegion.AP_NORTHEAST_1: 'ap-northeast-1'>, status=<DeploymentStatus.ACTIVE: 'active'>, replicas=2, target_replicas=2, cpu_utilization=59.08938881391296, gpu_utilization=75.93305966036279, memory_utilization=76.5955475843653, requests_per_second=34.529673057823814, latency_p50=0.0, latency_p95=101.55584309495799, latency_p99=0.0, error_rate=0.004390370898558162, last_update=1755868150.4085681, health_score=0.91, deployment_time=1.5027427673339844, traffic_percentage=0.0, active_connections=0)",
+        "manifests": {
+          "deployment": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+              "name": "nimify-llm-service-ap-northeast-1",
+              "namespace": "nim-services",
+              "labels": {
+                "app": "nimify-llm-service",
+                "region": "ap-northeast-1",
+                "deployment-id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-ap-northeast-1"
+              }
+            },
+            "spec": {
+              "replicas": 2,
+              "selector": {
+                "matchLabels": {
+                  "app": "nimify-llm-service",
+                  "region": "ap-northeast-1"
+                }
+              },
+              "template": {
+                "metadata": {
+                  "labels": {
+                    "app": "nimify-llm-service",
+                    "region": "ap-northeast-1"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {
+                      "name": "nimify-llm-service",
+                      "image": "nimify-llm-service:latest",
+                      "ports": [
+                        {
+                          "containerPort": 8000
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "1Gi",
+                          "nvidia.com/gpu": "1"
+                        },
+                        "limits": {
+                          "cpu": "2",
+                          "memory": "4Gi",
+                          "nvidia.com/gpu": "1"
+                        }
+                      },
+                      "livenessProbe": {
+                        "httpGet": {
+                          "path": "/health",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10
+                      },
+                      "readinessProbe": {
+                        "httpGet": {
+                          "path": "/ready",
+                          "port": 8000
+                        },
+                        "initialDelaySeconds": 5,
+                        "periodSeconds": 5
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "service": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+              "name": "nimify-llm-service-ap-northeast-1",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "selector": {
+                "app": "nimify-llm-service",
+                "region": "ap-northeast-1"
+              },
+              "ports": [
+                {
+                  "port": 80,
+                  "targetPort": 8000
+                }
+              ],
+              "type": "LoadBalancer"
+            }
+          },
+          "hpa": {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+              "name": "nimify-llm-service-ap-northeast-1-hpa",
+              "namespace": "nim-services"
+            },
+            "spec": {
+              "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "nimify-llm-service-ap-northeast-1"
+              },
+              "minReplicas": 2,
+              "maxReplicas": 25,
+              "metrics": [
+                {
+                  "type": "Resource",
+                  "resource": {
+                    "name": "cpu",
+                    "target": {
+                      "type": "Utilization",
+                      "averageUtilization": 70
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "deployment_time": 1.5027427673339844
+      }
+    },
+    "deployment_end_time": 1755868148.4019635,
+    "deployment_duration": 1.5029642581939697
+  },
+  "operational_report": {
+    "report_timestamp": 1755868150.9095783,
+    "service_name": "nimify-llm-service",
+    "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb",
+    "global_metrics": {
+      "total_regions": 6,
+      "healthy_regions": 6,
+      "total_replicas": 12,
+      "total_requests_per_second": 329.80228228752725,
+      "average_latency_p95": 94.34610238738394,
+      "average_error_rate": 0.0022817020670858183,
+      "global_health_score": 1.0
+    },
+    "regional_status": {
+      "us-east-1": {
+        "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-us-east-1",
+        "region": "us-east-1",
+        "status": "active",
+        "replicas": 2,
+        "target_replicas": 2,
+        "cpu_utilization": 41.866153678476934,
+        "gpu_utilization": 85.58414263799423,
+        "memory_utilization": 58.0238877488451,
+        "requests_per_second": 61.85103780828032,
+        "latency_p50": 0.0,
+        "latency_p95": 83.56497164753462,
+        "latency_p99": 0.0,
+        "error_rate": 0.0008344490312901994,
+        "health_score": 0.99,
+        "traffic_percentage": 0.0,
+        "active_connections": 0,
+        "last_update": 1755868150.4085388
+      },
+      "us-west-2": {
+        "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-us-west-2",
+        "region": "us-west-2",
+        "status": "active",
+        "replicas": 2,
+        "target_replicas": 2,
+        "cpu_utilization": 55.30625048092263,
+        "gpu_utilization": 73.07641604834413,
+        "memory_utilization": 79.67312190944666,
+        "requests_per_second": 41.565463190191494,
+        "latency_p50": 0.0,
+        "latency_p95": 101.44336649701968,
+        "latency_p99": 0.0,
+        "error_rate": 0.003718725300937664,
+        "health_score": 0.98,
+        "traffic_percentage": 0.0,
+        "active_connections": 0,
+        "last_update": 1755868150.4085453
+      },
+      "eu-west-1": {
+        "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-eu-west-1",
+        "region": "eu-west-1",
+        "status": "active",
+        "replicas": 2,
+        "target_replicas": 2,
+        "cpu_utilization": 51.60220513375223,
+        "gpu_utilization": 78.74401021539464,
+        "memory_utilization": 62.80313976492398,
+        "requests_per_second": 66.83420394219526,
+        "latency_p50": 0.0,
+        "latency_p95": 97.97570736731852,
+        "latency_p99": 0.0,
+        "error_rate": 0,
+        "health_score": 0.98,
+        "traffic_percentage": 0.0,
+        "active_connections": 0,
+        "last_update": 1755868150.4085522
+      },
+      "eu-central-1": {
+        "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-eu-central-1",
+        "region": "eu-central-1",
+        "status": "active",
+        "replicas": 2,
+        "target_replicas": 2,
+        "cpu_utilization": 48.964713563349754,
+        "gpu_utilization": 82.15118364354497,
+        "memory_utilization": 65.84935954656537,
+        "requests_per_second": 60.4613260263031,
+        "latency_p50": 0.0,
+        "latency_p95": 82.70807406315636,
+        "latency_p99": 0.0,
+        "error_rate": 0.0009817745949719026,
+        "health_score": 0.97,
+        "traffic_percentage": 0.0,
+        "active_connections": 0,
+        "last_update": 1755868150.4085577
+      },
+      "ap-southeast-1": {
+        "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-ap-southeast-1",
+        "region": "ap-southeast-1",
+        "status": "active",
+        "replicas": 2,
+        "target_replicas": 2,
+        "cpu_utilization": 55.89475925765321,
+        "gpu_utilization": 71.17974209731422,
+        "memory_utilization": 65.24464094429403,
+        "requests_per_second": 64.56057826273324,
+        "latency_p50": 0.0,
+        "latency_p95": 98.82865165431643,
+        "latency_p99": 0.0,
+        "error_rate": 0.003764892576756982,
+        "health_score": 0.97,
+        "traffic_percentage": 0.0,
+        "active_connections": 0,
+        "last_update": 1755868150.4085624
+      },
+      "ap-northeast-1": {
+        "deployment_id": "22e1ad41-e085-4283-8bc9-a898a8fa3dfb-ap-northeast-1",
+        "region": "ap-northeast-1",
+        "status": "active",
+        "replicas": 2,
+        "target_replicas": 2,
+        "cpu_utilization": 59.08938881391296,
+        "gpu_utilization": 75.93305966036279,
+        "memory_utilization": 76.5955475843653,
+        "requests_per_second": 34.529673057823814,
+        "latency_p50": 0.0,
+        "latency_p95": 101.55584309495799,
+        "latency_p99": 0.0,
+        "error_rate": 0.004390370898558162,
+        "health_score": 0.91,
+        "traffic_percentage": 0.0,
+        "active_connections": 0,
+        "last_update": 1755868150.4085681
+      }
+    },
+    "performance_trends": {
+      "latency_trend": "stable",
+      "traffic_trend": "increasing",
+      "error_rate_trend": "increasing",
+      "data_points_analyzed": 5
+    },
+    "insights": {
+      "scaling_recommendations": [],
+      "cost_optimization_opportunities": [],
+      "reliability_assessment": {
+        "overall_reliability_score": 1.0,
+        "healthy_regions": 6,
+        "total_regions": 6,
+        "reliability_grade": "A",
+        "single_point_failures": false,
+        "multi_region_resilience": true
+      },
+      "performance_optimization_suggestions": []
+    },
+    "recent_activities": {
+      "deployments": 1,
+      "last_optimization": 0.0,
+      "anomalies_detected": false
+    }
+  },
+  "timestamp": 1755868150.9099674
+}
