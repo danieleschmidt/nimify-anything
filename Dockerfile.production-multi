@@ -1,0 +1,177 @@
+# Multi-stage production Dockerfile for all NIM service generations
+FROM python:3.11-slim as base
+
+# Security hardening
+RUN groupadd -r nimuser && useradd -r -g nimuser nimuser
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Python dependencies
+COPY pyproject.toml /app/
+WORKDIR /app
+
+# Install dependencies with pip cache optimization
+RUN pip install --no-cache-dir -U pip setuptools wheel && \
+    pip install --no-cache-dir -e .
+
+# Copy source code
+COPY src/ /app/src/
+COPY tests/ /app/tests/
+
+# Compile Python files for faster startup
+RUN python -m compileall src/
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/cache /app/models /app/security && \
+    chown -R nimuser:nimuser /app
+
+# Health check script
+COPY scripts/health-check.sh /usr/local/bin/health-check.sh
+RUN chmod +x /usr/local/bin/health-check.sh
+
+# =============================================================================
+# Generation 1: Simple NIM Service
+# =============================================================================
+FROM base as simple
+
+# Simple service specific setup
+ENV PYTHONPATH=/app/src
+ENV SERVICE_TYPE=simple
+ENV API_VERSION=v1
+
+# Expose ports
+EXPOSE 8000 9090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD health-check.sh simple
+
+# Switch to non-root user
+USER nimuser
+
+# Start command
+CMD ["python", "-m", "uvicorn", "nimify.simple_api:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "1", "--access-log"]
+
+# =============================================================================
+# Generation 2: Robust NIM Service
+# =============================================================================
+FROM base as robust
+
+# Install additional security and reliability dependencies
+RUN pip install --no-cache-dir \
+    redis \
+    psycopg2-binary \
+    cryptography \
+    pyjwt
+
+# Robust service specific setup
+ENV PYTHONPATH=/app/src
+ENV SERVICE_TYPE=robust
+ENV API_VERSION=v2
+ENV CIRCUIT_BREAKER_ENABLED=true
+ENV ERROR_RECOVERY_ENABLED=true
+ENV SECURITY_ENABLED=true
+
+# Expose ports
+EXPOSE 8000 9090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD health-check.sh robust
+
+# Switch to non-root user
+USER nimuser
+
+# Start command with increased workers
+CMD ["python", "-m", "uvicorn", "nimify.robust_api:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "2", "--access-log", \
+     "--worker-class", "uvicorn.workers.UvicornWorker"]
+
+# =============================================================================
+# Generation 3: Optimized NIM Service
+# =============================================================================
+FROM base as optimized
+
+# Install performance optimization dependencies
+RUN pip install --no-cache-dir \
+    redis \
+    psycopg2-binary \
+    cryptography \
+    pyjwt \
+    cachetools \
+    psutil \
+    aiocache \
+    aioredis
+
+# Optimized service specific setup
+ENV PYTHONPATH=/app/src
+ENV SERVICE_TYPE=optimized
+ENV API_VERSION=v3
+ENV PERFORMANCE_OPTIMIZATION_ENABLED=true
+ENV AUTO_SCALING_ENABLED=true
+ENV CACHE_SIZE_MB=1024
+ENV BATCH_SIZE_MAX=64
+ENV PREDICTIVE_SCALING_ENABLED=true
+
+# Create optimized cache directory
+RUN mkdir -p /app/cache/adaptive /app/cache/batch /app/cache/connection-pool && \
+    chown -R nimuser:nimuser /app/cache
+
+# Expose ports
+EXPOSE 8000 9090
+
+# Health check with extended timeout for optimization startup
+HEALTHCHECK --interval=30s --timeout=15s --start-period=30s --retries=3 \
+    CMD health-check.sh optimized
+
+# Switch to non-root user
+USER nimuser
+
+# Start command with optimized configuration
+CMD ["python", "-m", "uvicorn", "nimify.optimized_api:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "4", "--access-log", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--loop", "asyncio", \
+     "--http", "httptools", \
+     "--lifespan", "on"]
+
+# =============================================================================
+# Production Stage (Default)
+# =============================================================================
+FROM optimized as production
+
+# Production optimizations
+ENV PYTHONOPTIMIZE=2
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Security labels
+LABEL maintainer="Terragon Labs" \
+      version="3.0.0" \
+      description="Production-ready NVIDIA NIM Microservice" \
+      org.opencontainers.image.title="Nimify Anything" \
+      org.opencontainers.image.description="Autonomous SDLC Generated NIM Service" \
+      org.opencontainers.image.vendor="Terragon Labs" \
+      org.opencontainers.image.version="3.0.0" \
+      org.opencontainers.image.created="2025-08-23" \
+      org.opencontainers.image.source="https://github.com/terragon/nimify-anything" \
+      org.opencontainers.image.documentation="https://github.com/terragon/nimify-anything/blob/main/README.md"
+
+# Final production command (can be overridden)
+CMD ["python", "-m", "uvicorn", "nimify.optimized_api:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "4", "--access-log", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--loop", "asyncio", \
+     "--http", "httptools", \
+     "--lifespan", "on"]
