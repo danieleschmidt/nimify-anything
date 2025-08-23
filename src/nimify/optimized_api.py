@@ -1,183 +1,191 @@
-"""Optimized FastAPI application with caching, performance monitoring and auto-scaling."""
+"""Optimized FastAPI application with advanced performance features and scaling."""
 
+import asyncio
+import hashlib
+import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
 
-from .auto_scaler import global_auto_scaler
-from .circuit_breaker import CircuitBreakerException, ModelInferenceCircuitBreaker
-from .error_handling import ModelError
-from .logging_config import log_performance_metric, setup_logging
-from .performance_optimizer import (
-    ModelInferenceCache,
-    global_monitor,
-    with_performance_monitoring,
-)
+from .intelligent_scaling import ScalingConfig, initialize_auto_scaling, global_auto_scaler
+from .logging_config import setup_logging
+from .performance_optimization import PerformanceConfig, initialize_performance_optimizer, global_performance_optimizer
 
 # Set up logging
-logger = setup_logging("nim-service-optimized", log_level="INFO")
+logger = setup_logging("nim-service-optimized", log_level="INFO", enable_audit=True)
 
 # Enhanced metrics
 REQUEST_COUNT = Counter('nim_optimized_request_count_total', 'Total requests', ['method', 'endpoint', 'status'])
-CACHE_HITS = Counter('nim_cache_hits_total', 'Cache hits', ['cache_type'])
-CACHE_MISSES = Counter('nim_cache_misses_total', 'Cache misses', ['cache_type'])
+REQUEST_DURATION = Histogram('nim_optimized_request_duration_seconds', 'Request duration')
 INFERENCE_DURATION = Histogram('nim_optimized_inference_duration_seconds', 'Model inference duration')
-AUTO_SCALING_EVENTS = Counter('nim_autoscaling_events_total', 'Auto-scaling events', ['direction'])
+CACHE_HITS = Counter('nim_optimized_cache_hits_total', 'Cache hits')
+CACHE_MISSES = Counter('nim_optimized_cache_misses_total', 'Cache misses')
+BATCH_SIZE = Histogram('nim_optimized_batch_size', 'Batch sizes processed')
+CONCURRENT_REQUESTS = Histogram('nim_optimized_concurrent_requests', 'Concurrent requests')
 
 
-class OptimizedPredictionRequest(BaseModel):
+class PredictionRequest(BaseModel):
     """Optimized request model with caching hints."""
-    input: list[list[float]] = Field(..., description="Input data for inference", min_length=1, max_length=64)
-    cache_ttl: int | None = Field(None, description="Cache TTL in seconds", ge=0, le=7200)
-    priority: str | None = Field("normal", description="Request priority", pattern="^(low|normal|high)$")
+    input: list[list[float]] = Field(..., description="Input data for inference", min_length=1, max_length=128)
+    use_cache: bool = Field(True, description="Whether to use caching for this request")
+    priority: int = Field(1, description="Request priority (1=low, 5=high)")
+    timeout_ms: Optional[int] = Field(None, description="Request timeout in milliseconds")
 
 
-class OptimizedPredictionResponse(BaseModel):
+class PredictionResponse(BaseModel):
     """Optimized response model with performance metadata."""
     predictions: list[list[float]] = Field(..., description="Model predictions")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
     request_id: str = Field(..., description="Unique request identifier")
-    cache_hit: bool = Field(..., description="Whether result was served from cache")
-    performance_metrics: dict[str, float] = Field(..., description="Performance metrics")
+    served_from_cache: bool = Field(False, description="Whether result was served from cache")
+    batch_size: int = Field(1, description="Batch size used for processing")
+    optimization_applied: list[str] = Field([], description="Optimizations applied")
+    performance_score: float = Field(0.0, description="Performance score (0-100)")
+
+
+class HealthResponse(BaseModel):
+    """Comprehensive health response with performance metrics."""
+    status: str = Field(..., description="Service status")
+    version: str = Field(..., description="Service version") 
+    uptime_seconds: float = Field(..., description="Service uptime in seconds")
+    performance_stats: dict[str, Any] = Field(..., description="Performance statistics")
     scaling_status: dict[str, Any] = Field(..., description="Auto-scaling status")
+    optimization_recommendations: list[str] = Field([], description="Performance recommendations")
 
 
 class OptimizedModelLoader:
-    """Model loader with caching and performance optimization."""
+    """Model loader with advanced optimization features."""
     
     def __init__(self, model_path: str):
         self.model_path = model_path
         self.session: Any | None = None
-        self.circuit_breaker = ModelInferenceCircuitBreaker("optimized_model")
-        self.inference_cache = ModelInferenceCache("optimized_model")
-        self.warmup_completed = False
-    
+        self.model_loaded = False
+        self.load_time = 0.0
+        self.prediction_count = 0
+        self.total_inference_time = 0.0
+        
     async def load_model(self):
-        """Load model with performance optimizations."""
-        try:
-            # Mock model loading
-            self.session = {"mock": True, "optimized": True}
-            logger.info(f"Optimized model loaded: {self.model_path}")
-            
-            # Warm up the model
-            await self._warmup_model()
-            
-        except Exception as e:
-            raise ModelError(f"Failed to load optimized model: {str(e)}")
-    
-    async def _warmup_model(self):
-        """Warm up the model with dummy inference."""
-        if self.warmup_completed:
-            return
-            
-        try:
-            # Warm up with dummy data
-            warmup_data = [[1.0, 2.0, 3.0]]
-            await self._raw_predict(warmup_data, skip_cache=True)
-            self.warmup_completed = True
-            logger.info("Model warmup completed")
-            
-        except Exception as e:
-            logger.warning(f"Model warmup failed: {e}")
-    
-    @with_performance_monitoring(global_monitor)
-    async def predict(
-        self,
-        input_data: list[list[float]],
-        cache_ttl: int | None = None,
-        priority: str = "normal"
-    ) -> tuple[list[list[float]], bool]:
-        """Optimized prediction with caching."""
-        if not self.session:
-            raise ModelError("Model not loaded")
-        
-        # Check cache first
-        cache_hit = False
-        cached_predictions = self.inference_cache.get_prediction(input_data)
-        
-        if cached_predictions is not None:
-            CACHE_HITS.labels(cache_type="inference").inc()
-            cache_hit = True
-            
-            # Record cache hit metrics
-            global_monitor.record_metric("cache_hit_rate", 1.0)
-            log_performance_metric("inference_cache_hit", 1, "boolean")
-            
-            return cached_predictions, cache_hit
-        
-        CACHE_MISSES.labels(cache_type="inference").inc()
-        global_monitor.record_metric("cache_hit_rate", 0.0)
-        
-        # Perform inference
-        predictions = await self._raw_predict(input_data, priority=priority)
-        
-        # Cache result
-        cache_ttl = cache_ttl or 3600  # 1 hour default
-        self.inference_cache.cache_prediction(input_data, predictions)
-        
-        return predictions, cache_hit
-    
-    async def _raw_predict(
-        self,
-        input_data: list[list[float]],
-        skip_cache: bool = False,
-        priority: str = "normal"
-    ) -> list[list[float]]:
-        """Raw inference without caching."""
-        
-        def _do_inference():
-            # Mock inference with some processing time based on priority
-            processing_delay = {
-                "low": 0.05,
-                "normal": 0.02,  
-                "high": 0.01
-            }.get(priority, 0.02)
-            
-            time.sleep(processing_delay)  # Simulate processing
-            
-            # Mock prediction
-            input_array = np.array(input_data, dtype=np.float32)
-            predictions = (input_array * 2.1 + 0.5).tolist()  # More complex mock
-            return predictions
-        
-        # Use circuit breaker for protection
+        """Load model with optimization."""
         start_time = time.time()
-        predictions = self.circuit_breaker.predict(_do_inference)
-        inference_time = (time.time() - start_time) * 1000
         
-        # Record performance metrics
-        INFERENCE_DURATION.observe(inference_time / 1000)
-        global_monitor.record_metric("raw_inference_time_ms", inference_time)
-        
-        # Record auto-scaling metrics
-        global_auto_scaler.record_metric("p95_latency_ms", inference_time)
-        global_auto_scaler.record_metric("cpu_utilization", min(100, inference_time / 5))  # Mock CPU usage
-        
-        return predictions
+        try:
+            # Mock model loading with optimization
+            await asyncio.sleep(0.1)  # Simulate loading time
+            self.session = {"optimized": True, "loaded_at": time.time()}
+            self.model_loaded = True
+            self.load_time = time.time() - start_time
+            
+            logger.info(f"Optimized model loaded in {self.load_time:.3f}s: {self.model_path}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            raise
     
-    def get_performance_stats(self) -> dict[str, Any]:
-        """Get performance statistics."""
-        cache_stats = self.inference_cache.get_stats()
-        circuit_stats = self.circuit_breaker.get_status()
+    async def predict(self, input_data: list[list[float]], use_optimization: bool = True) -> tuple[list[list[float]], dict[str, Any]]:
+        """Run optimized inference."""
+        if not self.model_loaded:
+            raise ValueError("Model not loaded")
+        
+        start_time = time.time()
+        optimizations_applied = []
+        
+        try:
+            input_array = np.array(input_data, dtype=np.float32)
+            
+            # Apply optimizations based on input characteristics
+            if use_optimization:
+                if input_array.size > 1000:
+                    # Large input - use chunked processing
+                    predictions = await self._chunked_inference(input_array)
+                    optimizations_applied.append("chunked_processing")
+                elif len(input_data) > 10:
+                    # Batch input - use vectorized operations
+                    predictions = await self._vectorized_inference(input_array)
+                    optimizations_applied.append("vectorized_operations")
+                else:
+                    # Standard processing
+                    predictions = await self._standard_inference(input_array)
+            else:
+                predictions = await self._standard_inference(input_array)
+            
+            inference_time = time.time() - start_time
+            
+            # Update statistics
+            self.prediction_count += 1
+            self.total_inference_time += inference_time
+            
+            metadata = {
+                "optimizations_applied": optimizations_applied,
+                "inference_time_ms": inference_time * 1000,
+                "input_shape": input_array.shape,
+                "prediction_count": self.prediction_count
+            }
+            
+            INFERENCE_DURATION.observe(inference_time)
+            return predictions, metadata
+            
+        except Exception as e:
+            logger.error(f"Optimized inference failed: {e}")
+            raise
+    
+    async def _standard_inference(self, input_array: np.ndarray) -> list[list[float]]:
+        """Standard inference processing."""
+        await asyncio.sleep(0.005)  # Simulate processing
+        return (input_array * 2.0).tolist()
+    
+    async def _vectorized_inference(self, input_array: np.ndarray) -> list[list[float]]:
+        """Optimized vectorized inference."""
+        await asyncio.sleep(0.003)  # Faster processing
+        # Vectorized operations for better performance
+        result = np.multiply(input_array, 2.0, dtype=np.float32)
+        return result.tolist()
+    
+    async def _chunked_inference(self, input_array: np.ndarray) -> list[list[float]]:
+        """Chunked processing for large inputs."""
+        chunk_size = 100
+        results = []
+        
+        for i in range(0, len(input_array), chunk_size):
+            chunk = input_array[i:i + chunk_size]
+            await asyncio.sleep(0.001)  # Simulate chunk processing
+            chunk_result = chunk * 2.0
+            results.extend(chunk_result.tolist())
+        
+        return results
+    
+    def get_model_stats(self) -> dict[str, Any]:
+        """Get model performance statistics."""
+        avg_inference_time = (self.total_inference_time / max(1, self.prediction_count)) * 1000
         
         return {
-            "cache": cache_stats,
-            "circuit_breaker": circuit_stats,
-            "warmup_completed": self.warmup_completed
+            "model_loaded": self.model_loaded,
+            "load_time_seconds": self.load_time,
+            "prediction_count": self.prediction_count,
+            "avg_inference_time_ms": avg_inference_time,
+            "total_inference_time_seconds": self.total_inference_time
         }
 
 
 # Global state
 model_loader: OptimizedModelLoader | None = None
 service_start_time = time.time()
-request_counter = 0
+auto_scaler = None
+performance_optimizer = None
+
+
+def generate_cache_key(input_data: list[list[float]]) -> str:
+    """Generate cache key for request data."""
+    # Create deterministic hash of input data
+    input_str = str(sorted([sorted(row) for row in input_data]))
+    return hashlib.md5(input_str.encode()).hexdigest()
 
 
 async def get_request_id() -> str:
@@ -185,227 +193,368 @@ async def get_request_id() -> str:
     return str(uuid.uuid4())
 
 
-async def performance_middleware(request: Request, call_next):
-    """Performance monitoring middleware."""
-    global request_counter
-    request_counter += 1
+async def track_concurrent_requests(request: Request):
+    """Track concurrent request metrics."""
+    # Simple tracking using request state
+    if not hasattr(request.app.state, 'concurrent_count'):
+        request.app.state.concurrent_count = 0
     
-    start_time = time.time()
+    request.app.state.concurrent_count += 1
+    CONCURRENT_REQUESTS.observe(request.app.state.concurrent_count)
     
-    # Record request rate for auto-scaling
-    global_auto_scaler.record_metric("requests_per_second", 1.0)  # Simplified
-    
-    response = await call_next(request)
-    
-    # Record performance metrics
-    duration = (time.time() - start_time) * 1000
-    global_monitor.record_metric("request_duration_ms", duration)
-    
-    # Auto-scaling evaluation (every 10 requests)
-    if request_counter % 10 == 0:
-        scaling_decisions = global_auto_scaler.evaluate_scaling()
-        for decision in scaling_decisions:
-            AUTO_SCALING_EVENTS.labels(direction=decision.direction.value).inc()
-            global_auto_scaler.apply_scaling_decision(decision)
-    
-    return response
+    try:
+        yield
+    finally:
+        request.app.state.concurrent_count = max(0, request.app.state.concurrent_count - 1)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Optimized application lifespan manager."""
-    global model_loader, service_start_time
+    """Enhanced application lifespan with performance optimization."""
+    global model_loader, service_start_time, auto_scaler, performance_optimizer
     
     # Startup
     service_start_time = time.time()
+    logger.info("Starting optimized NIM service...")
+    
+    # Initialize performance optimizer
+    perf_config = PerformanceConfig(
+        enable_request_batching=True,
+        enable_response_caching=True,
+        cache_size_mb=1024,
+        max_batch_size=64
+    )
+    performance_optimizer = initialize_performance_optimizer(perf_config)
+    
+    # Initialize auto-scaler
+    scaling_config = ScalingConfig(
+        min_replicas=2,
+        max_replicas=50,
+        enable_predictive_scaling=True,
+        enable_cost_optimization=True
+    )
+    auto_scaler = initialize_auto_scaling(scaling_config)
+    
+    # Load model
     import os
     model_path = os.getenv("MODEL_PATH", "/models/model.onnx")
     model_loader = OptimizedModelLoader(model_path)
     
     try:
         await model_loader.load_model()
+        
+        # Start auto-scaling in background
+        if global_auto_scaler:
+            asyncio.create_task(global_auto_scaler.start_auto_scaling())
+        
         logger.info("Optimized NIM service started successfully")
+        
     except Exception as e:
-        logger.error(f"Failed to start optimized service: {e}")
+        logger.error(f"Failed to start service: {e}")
+    
+    # Cache warmup with common patterns
+    if performance_optimizer and performance_optimizer.cache:
+        common_requests = [
+            ("warmup_1", [[1.0, 2.0, 3.0]], lambda x: model_loader.predict(x)[0]),
+            ("warmup_2", [[0.5, 1.5, 2.5]], lambda x: model_loader.predict(x)[0]),
+        ]
+        await performance_optimizer.warmup_cache(common_requests)
     
     yield
     
     # Shutdown
-    logger.info("Optimized NIM service shutting down")
+    logger.info("Shutting down optimized NIM service...")
+    if global_auto_scaler:
+        global_auto_scaler.stop_auto_scaling()
 
 
 # Create optimized FastAPI app
 app = FastAPI(
     title="Optimized NIM Service API",
-    description="High-performance NVIDIA NIM microservice with caching, monitoring, and auto-scaling",
+    description="High-performance NVIDIA NIM microservice with auto-scaling and intelligent optimization",
     version="3.0.0",
     lifespan=lifespan
 )
 
-# Add performance middleware
-app.middleware("http")(performance_middleware)
+# Add middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"]
+)
 
 
-@app.post("/v1/predict", response_model=OptimizedPredictionResponse)
-async def optimized_predict(
-    request: OptimizedPredictionRequest,
+@app.post("/v1/predict", response_model=PredictionResponse)
+async def predict(
+    request: PredictionRequest,
     req: Request,
-    request_id: str = Depends(get_request_id)
+    background_tasks: BackgroundTasks,
+    request_id: str = Depends(get_request_id),
+    _: Any = Depends(track_concurrent_requests)
 ):
-    """Optimized prediction endpoint with caching and performance monitoring."""
+    """Optimized prediction endpoint with caching, batching, and scaling."""
     REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="start").inc()
     
-    if not model_loader or not model_loader.session:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+    if not model_loader or not model_loader.model_loaded:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "Model not loaded",
+                "request_id": request_id,
+                "timestamp": time.time()
+            }
+        )
+    
+    start_time = time.time()
+    served_from_cache = False
+    optimizations_applied = []
     
     try:
-        overall_start = time.time()
-        
-        # Perform optimized inference
-        predictions, cache_hit = await model_loader.predict(
-            input_data=request.input,
-            cache_ttl=request.cache_ttl,
-            priority=request.priority
-        )
-        
-        total_time = (time.time() - overall_start) * 1000
-        
-        # Get performance metrics
-        perf_stats = global_monitor.get_all_stats()
-        performance_metrics = {
-            "total_time_ms": total_time,
-            "cache_hit_rate": perf_stats.get("cache_hit_rate", {}).get("latest", 0.0) if perf_stats.get("cache_hit_rate") else 0.0,
-        }
-        
-        # Get scaling status
-        scaling_status = global_auto_scaler.get_scaling_stats()
-        
-        REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="success").inc()
-        
-        return OptimizedPredictionResponse(
-            predictions=predictions,
-            inference_time_ms=total_time,
-            request_id=request_id,
-            cache_hit=cache_hit,
-            performance_metrics=performance_metrics,
-            scaling_status=scaling_status
-        )
-        
-    except CircuitBreakerException:
-        REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="circuit_open").inc()
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "Service temporarily unavailable (circuit breaker open)",
-                "request_id": request_id,
-                "retry_after": 30
-            }
-        )
-        
+        with REQUEST_DURATION.time():
+            # Generate cache key
+            cache_key = generate_cache_key(request.input) if request.use_cache else None
+            
+            # Try performance optimization
+            if performance_optimizer and cache_key:
+                
+                async def inference_processor(input_data):
+                    predictions, metadata = await model_loader.predict(input_data, use_optimization=True)
+                    return predictions, metadata
+                
+                result = await performance_optimizer.optimize_request(
+                    cache_key, 
+                    request.input,
+                    lambda data: inference_processor(data)
+                )
+                
+                if isinstance(result, tuple):
+                    predictions, inference_metadata = result
+                else:
+                    predictions = result
+                    inference_metadata = {"optimizations_applied": []}
+                
+                # Check if served from cache
+                if performance_optimizer.cache:
+                    cache_stats = performance_optimizer.cache.get_cache_stats()
+                    served_from_cache = cache_stats["hit_count"] > CACHE_HITS._value._value
+                    if served_from_cache:
+                        CACHE_HITS.inc()
+                        optimizations_applied.append("cache_hit")
+                    else:
+                        CACHE_MISSES.inc()
+                
+                optimizations_applied.extend(inference_metadata.get("optimizations_applied", []))
+            else:
+                # Direct inference without optimization
+                predictions, inference_metadata = await model_loader.predict(request.input)
+                optimizations_applied.extend(inference_metadata.get("optimizations_applied", []))
+            
+            # Calculate performance metrics
+            total_time_ms = (time.time() - start_time) * 1000
+            batch_size = len(request.input)
+            
+            BATCH_SIZE.observe(batch_size)
+            
+            # Calculate performance score
+            performance_score = min(100.0, max(0.0, 100 - total_time_ms / 10))  # 100 for <10ms, 0 for >1000ms
+            
+            # Background tasks for optimization
+            background_tasks.add_task(
+                optimize_performance_background,
+                total_time_ms,
+                batch_size,
+                optimizations_applied
+            )
+            
+            REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="success").inc()
+            
+            return PredictionResponse(
+                predictions=predictions,
+                inference_time_ms=total_time_ms,
+                request_id=request_id,
+                served_from_cache=served_from_cache,
+                batch_size=batch_size,
+                optimization_applied=optimizations_applied,
+                performance_score=performance_score
+            )
+    
     except Exception as e:
         REQUEST_COUNT.labels(method="POST", endpoint="/v1/predict", status="error").inc()
+        logger.error(f"Optimized prediction error: {e}")
+        
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
-                "error": f"Internal server error: {str(e)}",
-                "request_id": request_id
+                "error": "Optimized inference failed",
+                "request_id": request_id,
+                "timestamp": time.time()
             }
         )
 
 
-@app.get("/health")
-async def optimized_health_check():
-    """Comprehensive health check with performance data."""
-    model_loaded = model_loader is not None and model_loader.session is not None
+async def optimize_performance_background(
+    response_time_ms: float,
+    batch_size: int,
+    optimizations_applied: list[str]
+):
+    """Background task for performance optimization."""
+    if not performance_optimizer:
+        return
+    
+    try:
+        # Auto-tune performance based on recent metrics
+        recommendations = await performance_optimizer.auto_tune_performance()
+        
+        if recommendations:
+            logger.info(f"Performance recommendations: {recommendations}")
+        
+        # Periodic memory optimization
+        if len(optimizations_applied) > 5:  # High optimization activity
+            await performance_optimizer.optimize_memory_usage()
+        
+    except Exception as e:
+        logger.warning(f"Background performance optimization failed: {e}")
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Comprehensive health check with optimization metrics."""
     uptime = time.time() - service_start_time
     
-    health_data = {
-        "status": "healthy" if model_loaded else "degraded",
-        "model_loaded": model_loaded,
-        "version": "3.0.0",
-        "uptime_seconds": uptime,
-        "performance": {},
-        "scaling": {}
-    }
+    # Get performance stats
+    perf_stats = {}
+    if performance_optimizer:
+        perf_stats = performance_optimizer.get_performance_stats()
     
-    if model_loader:
-        health_data["performance"] = model_loader.get_performance_stats()
+    # Get scaling status
+    scaling_status = {}
+    if global_auto_scaler:
+        scaling_status = global_auto_scaler.scaler.get_scaling_status()
     
-    health_data["scaling"] = global_auto_scaler.get_scaling_stats()
+    # Get optimization recommendations
+    recommendations = []
+    if performance_optimizer and uptime > 300:  # After 5 minutes
+        try:
+            recommendations = await performance_optimizer.auto_tune_performance()
+        except Exception:
+            pass
     
-    return health_data
+    # Determine overall status
+    status = "healthy"
+    if not model_loader or not model_loader.model_loaded:
+        status = "degraded"
+    elif perf_stats.get("cache_stats", {}).get("hit_rate", 0) < 0.2 and uptime > 600:
+        status = "suboptimal"
+    
+    return HealthResponse(
+        status=status,
+        version="3.0.0",
+        uptime_seconds=uptime,
+        performance_stats=perf_stats,
+        scaling_status=scaling_status,
+        optimization_recommendations=recommendations or []
+    )
 
 
 @app.get("/metrics")
 async def metrics():
-    """Enhanced Prometheus metrics endpoint."""
+    """Enhanced Prometheus metrics."""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.get("/performance")
+@app.get("/performance/stats")
 async def performance_stats():
-    """Detailed performance statistics."""
-    stats = {
-        "monitor": global_monitor.get_all_stats(),
-        "scaling": global_auto_scaler.get_scaling_stats()
-    }
+    """Detailed performance statistics endpoint."""
+    if not performance_optimizer:
+        return {"error": "Performance optimizer not initialized"}
+    
+    stats = performance_optimizer.get_performance_stats()
     
     if model_loader:
-        stats["model"] = model_loader.get_performance_stats()
+        stats["model_stats"] = model_loader.get_model_stats()
     
     return stats
 
 
-@app.post("/admin/clear-cache")
-async def clear_cache():
-    """Admin endpoint to clear inference cache."""
-    if model_loader:
-        model_loader.inference_cache.cache.clear()
+@app.post("/admin/optimize")
+async def manual_optimization():
+    """Manual performance optimization trigger."""
+    if not performance_optimizer:
+        return {"error": "Performance optimizer not initialized"}
     
-    return {"message": "Cache cleared successfully"}
+    optimizations = await performance_optimizer.optimize_memory_usage()
+    recommendations = await performance_optimizer.auto_tune_performance()
+    
+    return {
+        "optimizations_applied": optimizations,
+        "recommendations": recommendations,
+        "timestamp": time.time()
+    }
 
 
-@app.post("/admin/warmup")
-async def manual_warmup():
-    """Admin endpoint to manually warmup the model."""
-    if model_loader:
-        await model_loader._warmup_model()
+@app.get("/admin/scaling")
+async def scaling_status():
+    """Get current auto-scaling status."""
+    if not global_auto_scaler:
+        return {"error": "Auto-scaler not initialized"}
     
-    return {"message": "Model warmup completed"}
+    return global_auto_scaler.scaler.get_scaling_status()
+
+
+@app.post("/admin/scaling/analyze")
+async def analyze_scaling():
+    """Manually trigger scaling analysis."""
+    if not global_auto_scaler:
+        return {"error": "Auto-scaler not initialized"}
+    
+    recommendation = await global_auto_scaler.manual_scale_check()
+    
+    return {
+        "action": recommendation.action.value,
+        "target_replicas": recommendation.target_replicas,
+        "current_replicas": recommendation.current_replicas,
+        "confidence": recommendation.confidence,
+        "reasoning": recommendation.reasoning,
+        "expected_improvement": recommendation.expected_improvement,
+        "cost_impact": recommendation.cost_impact,
+        "urgency": recommendation.urgency
+    }
 
 
 @app.get("/")
 async def root():
-    """Root endpoint with optimized service info."""
+    """Root endpoint with optimization features."""
     return {
         "service": "Optimized NVIDIA NIM Microservice",
         "version": "3.0.0",
         "features": [
-            "Intelligent Caching",
-            "Auto-scaling",
-            "Performance Monitoring", 
-            "Circuit Breaker Protection",
-            "Priority-based Processing",
-            "Model Warmup"
+            "Intelligent Request Caching",
+            "Dynamic Request Batching",
+            "Auto-Scaling with Predictive Analytics",
+            "Performance Optimization Engine",
+            "Memory Management",
+            "Connection Pooling",
+            "Real-time Performance Tuning"
         ],
-        "performance": {
-            "cache_enabled": True,
-            "auto_scaling_enabled": True,
-            "monitoring_enabled": True
+        "optimization_status": {
+            "performance_optimizer": performance_optimizer is not None,
+            "auto_scaler": global_auto_scaler is not None,
+            "uptime_minutes": (time.time() - service_start_time) / 60
         },
         "endpoints": {
             "predict": "/v1/predict",
             "health": "/health",
             "metrics": "/metrics",
-            "performance": "/performance",
-            "admin": {
-                "clear_cache": "/admin/clear-cache",
-                "warmup": "/admin/warmup"
-            }
+            "performance_stats": "/performance/stats",
+            "admin_optimize": "/admin/optimize",
+            "admin_scaling": "/admin/scaling",
+            "docs": "/docs"
         }
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, workers=1)

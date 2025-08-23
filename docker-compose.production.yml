@@ -1,0 +1,317 @@
+version: '3.8'
+
+services:
+  # Generation 1: Simple NIM Service
+  nimify-simple:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+      target: production
+    image: nimify/simple:latest
+    container_name: nimify-simple
+    ports:
+      - "8001:8000"
+      - "9091:9090"
+    environment:
+      - MODEL_PATH=/models/model.onnx
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./models:/models:ro
+      - ./logs:/app/logs
+    networks:
+      - nimify-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nimify-simple.rule=PathPrefix(`/api/v1/simple`)"
+      - "traefik.http.services.nimify-simple.loadbalancer.server.port=8000"
+
+  # Generation 2: Robust NIM Service
+  nimify-robust:
+    build:
+      context: .
+      dockerfile: Dockerfile.robust
+      target: production
+    image: nimify/robust:latest
+    container_name: nimify-robust
+    ports:
+      - "8002:8000"
+      - "9092:9090"
+    environment:
+      - MODEL_PATH=/models/model.onnx
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+      - CIRCUIT_BREAKER_ENABLED=true
+      - ERROR_RECOVERY_ENABLED=true
+      - SECURITY_ENABLED=true
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./models:/models:ro
+      - ./logs:/app/logs
+      - ./security:/app/security:ro
+    networks:
+      - nimify-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nimify-robust.rule=PathPrefix(`/api/v2/robust`)"
+      - "traefik.http.services.nimify-robust.loadbalancer.server.port=8000"
+    depends_on:
+      - redis
+      - postgres
+
+  # Generation 3: Optimized NIM Service  
+  nimify-optimized:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+      target: production
+    image: nimify/optimized:latest
+    container_name: nimify-optimized
+    ports:
+      - "8003:8000"
+      - "9093:9090"
+    environment:
+      - MODEL_PATH=/models/model.onnx
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+      - PERFORMANCE_OPTIMIZATION_ENABLED=true
+      - AUTO_SCALING_ENABLED=true
+      - CACHE_SIZE_MB=1024
+      - BATCH_SIZE_MAX=64
+      - PREDICTIVE_SCALING_ENABLED=true
+      - PYTHONPATH=/app/src
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://nimify:password@postgres:5432/nimify
+    volumes:
+      - ./models:/models:ro
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+    networks:
+      - nimify-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nimify-optimized.rule=PathPrefix(`/api/v3/optimized`)"
+      - "traefik.http.services.nimify-optimized.loadbalancer.server.port=8000"
+    depends_on:
+      - redis
+      - postgres
+      - nimify-simple
+      - nimify-robust
+
+  # Load Balancer (Traefik)
+  traefik:
+    image: traefik:v3.0
+    container_name: nimify-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.addEntryPointsLabels=true"
+      - "--metrics.prometheus.addServicesLabels=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - nimify-network
+    restart: unless-stopped
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: nimify-redis
+    command: redis-server --appendonly yes --requirepass password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - nimify-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "password", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  # PostgreSQL for persistent storage
+  postgres:
+    image: postgres:15-alpine
+    container_name: nimify-postgres
+    environment:
+      - POSTGRES_DB=nimify
+      - POSTGRES_USER=nimify
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - nimify-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nimify -d nimify"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: nimify-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - nimify-network
+    restart: unless-stopped
+    depends_on:
+      - nimify-simple
+      - nimify-robust
+      - nimify-optimized
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nimify-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/provisioning:/etc/grafana/provisioning
+    networks:
+      - nimify-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Vector for log aggregation
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: nimify-vector
+    volumes:
+      - ./logs:/var/log/nimify:ro
+      - ./monitoring/vector.toml:/etc/vector/vector.toml:ro
+    networks:
+      - nimify-network
+    restart: unless-stopped
+    depends_on:
+      - nimify-simple
+      - nimify-robust
+      - nimify-optimized
+
+  # NGINX for static assets and additional load balancing
+  nginx:
+    image: nginx:alpine
+    container_name: nimify-nginx
+    ports:
+      - "8090:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/usr/share/nginx/html:ro
+    networks:
+      - nimify-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  nimify-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

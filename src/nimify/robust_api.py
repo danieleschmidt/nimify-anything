@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
 
+from .advanced_security import SecurityConfig, SecurityManager, SecurityMiddleware, SecurityLevel
 from .circuit_breaker import (
     CircuitBreakerException,
     ModelInferenceCircuitBreaker,
@@ -27,6 +28,7 @@ from .logging_config import (
     setup_logging,
 )
 from .research_integration import ProductionResearchOrchestrator
+from .robust_error_handling import global_error_manager, robust_error_handler, AdaptiveRetryPolicy
 
 # Set up logging
 logger = setup_logging("nim-service-robust", log_level="INFO", enable_audit=True)

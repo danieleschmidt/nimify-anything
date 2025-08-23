@@ -411,3 +411,38 @@ CMD ["python", "-m", "uvicorn", "src.nimify.api:app", \
         output_dir = Path.cwd() / "deployments"
         
         return orchestrator.generate_deployment_package(output_dir)
+    
+    def create_model_ensemble(self, models: dict[str, 'NIMService'], ensemble_strategy: str = "sequential") -> 'ModelEnsemble':
+        """Create ensemble from multiple NIM services for advanced use cases."""
+        from .ensemble import ModelEnsemble, EnsembleConfig
+        
+        ensemble_config = EnsembleConfig(
+            name=f"{self.config.name}_ensemble",
+            strategy=ensemble_strategy,
+            models=models,
+            routing_rules=self._generate_routing_rules(models, ensemble_strategy)
+        )
+        
+        return ModelEnsemble(ensemble_config)
+    
+    def _generate_routing_rules(self, models: dict[str, 'NIMService'], strategy: str) -> dict:
+        """Generate intelligent routing rules for ensemble."""
+        if strategy == "sequential":
+            return {"type": "sequential", "order": list(models.keys())}
+        elif strategy == "parallel":
+            return {"type": "parallel", "aggregation": "weighted_average"}
+        elif strategy == "conditional":
+            return {"type": "conditional", "rules": self._create_conditional_rules(models)}
+        else:
+            return {"type": "load_balance", "weights": {name: 1.0 for name in models.keys()}}
+    
+    def _create_conditional_rules(self, models: dict[str, 'NIMService']) -> list:
+        """Create conditional routing rules based on input characteristics."""
+        rules = []
+        model_names = list(models.keys())
+        
+        for i, model_name in enumerate(model_names):
+            condition = f"input_size < {(i + 1) * 100}" if i < len(model_names) - 1 else "default"
+            rules.append({"condition": condition, "target": model_name})
+        
+        return rules
