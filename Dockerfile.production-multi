@@ -1,5 +1,5 @@
 # Multi-stage production Dockerfile for all NIM service generations
-FROM python:3.11-slim as base
+FROM python:3.13-slim as base
 
 # Security hardening
 RUN groupadd -r nimuser && useradd -r -g nimuser nimuser
