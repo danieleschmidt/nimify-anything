@@ -1,64 +1,171 @@
 """Core classes for NVIDIA NIM microservice creation."""
 
 import json
-from dataclasses import dataclass
+import os
+import time
+import logging
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
+import uuid
 
 
 @dataclass
 class ModelConfig:
-    """Configuration for model service creation."""
+    """Enhanced configuration for model service creation."""
     
     name: str
     max_batch_size: int = 32
     dynamic_batching: bool = True
-    preferred_batch_sizes: list[int] = None
+    preferred_batch_sizes: Optional[List[int]] = None
     max_queue_delay_microseconds: int = 100
     gpu_memory: str = "auto"
+    
+    # Enhanced configuration options
+    model_format: str = "auto"
+    optimization_level: str = "standard"  # minimal, standard, aggressive
+    enable_metrics: bool = True
+    enable_health_checks: bool = True
+    request_timeout: int = 30
+    concurrent_requests: int = 100
+    
+    # Auto-scaling configuration
+    min_replicas: int = 1
+    max_replicas: int = 10
+    target_cpu_utilization: int = 70
+    target_gpu_utilization: int = 80
+    
+    # Security configuration
+    enable_auth: bool = False
+    enable_tls: bool = False
+    rate_limit_requests: int = 1000
+    
+    # Metadata
+    version: str = "1.0.0"
+    description: str = ""
+    tags: List[str] = field(default_factory=list)
+    created_at: Optional[datetime] = None
     
     def __post_init__(self):
         if self.preferred_batch_sizes is None:
             self.preferred_batch_sizes = [1, 4, 8, 16, self.max_batch_size]
+        if self.created_at is None:
+            self.created_at = datetime.utcnow()
+        if not self.description:
+            self.description = f"NVIDIA NIM service for {self.name}"
 
 
 class Nimifier:
-    """Main class for converting models to NIM services."""
+    """Enhanced main class for converting models to NIM services."""
     
-    def __init__(self, config: ModelConfig):
+    def __init__(self, config: ModelConfig, logger: Optional[logging.Logger] = None):
         self.config = config
+        self.logger = logger or self._setup_logger()
+        self.session_id = str(uuid.uuid4())[:8]
+        
+    def _setup_logger(self) -> logging.Logger:
+        """Setup logging for nimifier operations."""
+        logger = logging.getLogger(f"nimify.{self.config.name}")
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+        return logger
     
     def wrap_model(
         self,
         model_path: str,
-        input_schema: dict[str, str],
-        output_schema: dict[str, str]
+        input_schema: Dict[str, str],
+        output_schema: Dict[str, str],
+        preprocessing_config: Optional[Dict[str, Any]] = None,
+        postprocessing_config: Optional[Dict[str, Any]] = None
     ) -> 'NIMService':
-        """Wrap a model file into a NIM service."""
-        return NIMService(
+        """Wrap a model file into a NIM service with enhanced validation."""
+        start_time = time.time()
+        self.logger.info(f"Starting model wrapping for {model_path}")
+        
+        # Validate model path
+        model_path_obj = Path(model_path)
+        if not model_path_obj.exists():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Detect model format if auto
+        if self.config.model_format == "auto":
+            detected_format = self._detect_model_format(model_path_obj)
+            self.logger.info(f"Detected model format: {detected_format}")
+        
+        # Create NIM service
+        service = NIMService(
             config=self.config,
             model_path=model_path,
             input_schema=input_schema,
-            output_schema=output_schema
+            output_schema=output_schema,
+            preprocessing_config=preprocessing_config or {},
+            postprocessing_config=postprocessing_config or {},
+            logger=self.logger
         )
+        
+        duration = time.time() - start_time
+        self.logger.info(f"Model wrapping completed in {duration:.2f}s")
+        
+        return service
+    
+    def _detect_model_format(self, model_path: Path) -> str:
+        """Auto-detect model format from file extension and content."""
+        ext = model_path.suffix.lower()
+        
+        format_map = {
+            '.onnx': 'onnx',
+            '.trt': 'tensorrt',
+            '.engine': 'tensorrt',
+            '.plan': 'tensorrt',
+            '.pb': 'tensorflow',
+            '.savedmodel': 'tensorflow',
+            '.pth': 'pytorch',
+            '.pt': 'pytorch',
+            '.torchscript': 'pytorch'
+        }
+        
+        return format_map.get(ext, 'unknown')
 
 
 class NIMService:
-    """Represents a NIM service instance."""
+    """Enhanced NIM service instance with comprehensive features."""
     
     def __init__(
         self,
         config: ModelConfig,
         model_path: str,
-        input_schema: dict[str, str],
-        output_schema: dict[str, str]
+        input_schema: Dict[str, str],
+        output_schema: Dict[str, str],
+        preprocessing_config: Optional[Dict[str, Any]] = None,
+        postprocessing_config: Optional[Dict[str, Any]] = None,
+        logger: Optional[logging.Logger] = None
     ):
         self.config = config
         self.model_path = model_path
         self.input_schema = input_schema
         self.output_schema = output_schema
+        self.preprocessing_config = preprocessing_config or {}
+        self.postprocessing_config = postprocessing_config or {}
+        self.logger = logger or logging.getLogger(f"nimify.service.{config.name}")
+        
+        # Service metadata
+        self.service_id = str(uuid.uuid4())
+        self.created_at = datetime.utcnow()
+        self.status = "initialized"
+        
+        # Performance tracking
+        self.request_count = 0
+        self.total_processing_time = 0.0
+        self.error_count = 0
     
-    def _schema_to_openapi(self, schema: dict[str, str]) -> dict[str, Any]:
+    def _schema_to_openapi(self, schema: Dict[str, str]) -> Dict[str, Any]:
         """Convert internal schema format to OpenAPI schema."""
         properties = {}
         
@@ -88,22 +195,45 @@ class NIMService:
         }
     
     def generate_openapi(self, output_path: str) -> None:
-        """Generate OpenAPI specification."""
+        """Generate comprehensive OpenAPI specification."""
         from pathlib import Path
         
-        # Generate OpenAPI spec based on input/output schemas
+        self.logger.info(f"Generating OpenAPI specification: {output_path}")
+        
+        # Generate enhanced OpenAPI spec
         openapi_spec = {
             "openapi": "3.0.0",
             "info": {
                 "title": f"{self.config.name} NIM API",
-                "version": "1.0.0",
-                "description": f"Auto-generated API for {self.config.name} model service"
+                "version": self.config.version,
+                "description": self.config.description,
+                "contact": {
+                    "name": "Nimify Support",
+                    "url": "https://github.com/nimify/nimify-anything"
+                },
+                "license": {
+                    "name": "MIT",
+                    "url": "https://opensource.org/licenses/MIT"
+                }
             },
+            "servers": [
+                {
+                    "url": "http://localhost:8000",
+                    "description": "Development server"
+                },
+                {
+                    "url": "https://api.example.com",
+                    "description": "Production server"
+                }
+            ],
             "paths": {
                 "/v1/predict": {
                     "post": {
-                        "summary": "Run inference",
+                        "summary": "Run model inference",
+                        "description": "Execute prediction using the wrapped model",
+                        "tags": ["Inference"],
                         "requestBody": {
+                            "required": True,
                             "content": {
                                 "application/json": {
                                     "schema": self._schema_to_openapi(self.input_schema)
@@ -118,16 +248,93 @@ class NIMService:
                                         "schema": self._schema_to_openapi(self.output_schema)
                                     }
                                 }
+                            },
+                            "400": {
+                                "description": "Invalid input data",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "error": {"type": "string"},
+                                                "details": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "500": {
+                                "description": "Internal server error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "error": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 },
                 "/health": {
                     "get": {
-                        "summary": "Health check",
+                        "summary": "Health check endpoint",
+                        "description": "Check service health and readiness",
+                        "tags": ["Health"],
                         "responses": {
                             "200": {
-                                "description": "Service is healthy"
+                                "description": "Service is healthy",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {"type": "string", "enum": ["healthy"]},
+                                                "timestamp": {"type": "string", "format": "date-time"},
+                                                "version": {"type": "string"},
+                                                "uptime": {"type": "number"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "503": {
+                                "description": "Service unavailable"
+                            }
+                        }
+                    }
+                },
+                "/metrics": {
+                    "get": {
+                        "summary": "Prometheus metrics",
+                        "description": "Get service metrics in Prometheus format",
+                        "tags": ["Monitoring"],
+                        "responses": {
+                            "200": {
+                                "description": "Metrics data",
+                                "content": {
+                                    "text/plain": {
+                                        "schema": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "/ready": {
+                    "get": {
+                        "summary": "Readiness probe",
+                        "description": "Check if service is ready to accept requests",
+                        "tags": ["Health"],
+                        "responses": {
+                            "200": {
+                                "description": "Service is ready"
+                            },
+                            "503": {
+                                "description": "Service not ready"
                             }
                         }
                     }
@@ -135,23 +342,76 @@ class NIMService:
             }
         }
         
-        # Write to file
-        Path(output_path).write_text(json.dumps(openapi_spec, indent=2))
+        # Add components section for reusable schemas
+        openapi_spec["components"] = {
+            "schemas": {
+                "ErrorResponse": {
+                    "type": "object",
+                    "properties": {
+                        "error": {"type": "string"},
+                        "details": {"type": "string"},
+                        "timestamp": {"type": "string", "format": "date-time"}
+                    }
+                },
+                "HealthResponse": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string"},
+                        "timestamp": {"type": "string", "format": "date-time"},
+                        "version": {"type": "string"},
+                        "uptime": {"type": "number"}
+                    }
+                }
+            }
+        }
+        
+        # Write to file with proper formatting
+        try:
+            Path(output_path).write_text(json.dumps(openapi_spec, indent=2, ensure_ascii=False))
+            self.logger.info(f"OpenAPI specification generated successfully: {output_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to generate OpenAPI spec: {e}")
+            raise
     
     def generate_helm_chart(self, output_dir: str) -> None:
-        """Generate Helm chart for Kubernetes deployment."""
+        """Generate enhanced Helm chart for Kubernetes deployment."""
         from pathlib import Path
         
         chart_dir = Path(output_dir)
         chart_dir.mkdir(parents=True, exist_ok=True)
         
-        # Chart.yaml
+        self.logger.info(f"Generating Helm chart in: {output_dir}")
+        
+        # Enhanced Chart.yaml with metadata
         chart_yaml = f"""apiVersion: v2
 name: {self.config.name}
-description: Helm chart for {self.config.name} NIM service
+description: {self.config.description}
 type: application
-version: 1.0.0
-appVersion: "1.0.0"
+version: {self.config.version}
+appVersion: "{self.config.version}"
+
+# Chart metadata
+home: https://github.com/nimify/nimify-anything
+sources:
+  - https://github.com/nimify/nimify-anything
+maintainers:
+  - name: Nimify Team
+    email: support@nimify.com
+    url: https://nimify.com
+
+# Keywords for discoverability
+keywords:
+  - nvidia
+  - nim
+  - ai
+  - ml
+  - inference
+  - microservice
+
+# Annotations
+annotations:
+  category: AI/ML
+  licenses: MIT
 """
         (chart_dir / "Chart.yaml").write_text(chart_yaml)
         

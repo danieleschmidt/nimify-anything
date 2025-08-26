@@ -1,7 +1,242 @@
 {
-  "timestamp": 1755270037.145087,
-  "checks_passed": 6,
-  "checks_total": 6,
-  "success_rate": 1.0,
-  "status": "PASSED"
+  "overall_passed": false,
+  "overall_score": 0.62,
+  "gates_passed": 2,
+  "total_gates": 5,
+  "individual_results": {
+    "Code Quality": {
+      "name": "Code Quality",
+      "passed": false,
+      "score": 0.4,
+      "details": {
+        "structure": {
+          "total_modules": 49,
+          "required_modules_present": 10,
+          "large_modules": 3
+        },
+        "documentation": {
+          "files_checked": 48,
+          "documentation_score": 0.6999999999999997,
+          "threshold": 0.6
+        },
+        "naming": {
+          "violations_count": 82,
+          "threshold": 20
+        },
+        "complexity": {
+          "high_complexity_functions": 58,
+          "threshold": 10
+        },
+        "imports": {
+          "files_with_import_issues": 32,
+          "threshold": 5
+        }
+      },
+      "errors": [],
+      "warnings": [
+        "Large modules detected: ['adaptive_fusion_research.py: 1119 lines', 'global_orchestrator.py: 1066 lines', 'quantum_optimization_research.py: 1452 lines']",
+        "adaptive_fusion_research.py: Class 'import' should be PascalCase",
+        "adaptive_fusion_research.py: Class 'class' should be PascalCase",
+        "advanced_security.py: Class 'from' should be PascalCase",
+        "advanced_security.py: Class 'class' should be PascalCase",
+        "auto_scaler.py: Class 'class' should be PascalCase",
+        "auto_scaler.py: Class 'class' should be PascalCase",
+        "autonomous_research_agent.py: Class 'class' should be PascalCase",
+        "autonomous_research_agent.py: Class 'for' should be PascalCase",
+        "caching_system.py: Class 'from' should be PascalCase",
+        "caching_system.py: Class 'class' should be PascalCase",
+        "... and 72 more naming violations",
+        "adaptive_fusion_research.py:__init__ (complexity: 27)",
+        "advanced_cli.py:analyze (complexity: 19)",
+        "advanced_security.py:__init__ (complexity: 71)",
+        "auto_scaler.py:__init__ (complexity: 23)",
+        "autonomous_research_agent.py:design_experiment (complexity: 29)",
+        "... and 53 more complex functions",
+        "adaptive_fusion_research.py: Potentially unused imports: ['numpy as np']",
+        "advanced_security.py: Potentially unused imports: ['HTTPBearer', 'HTTPAuthorizationCredentials']",
+        "api.py: Potentially unused imports: ['numpy as np', 'onnxruntime as ort']",
+        "auto_scaler.py: Potentially unused imports: ['numpy as np']",
+        "autonomous_research_agent.py: Potentially unused imports: ['numpy as np']",
+        "circuit_breaker.py: Potentially unused imports: ['numpy as np']",
+        "comprehensive_benchmarking.py: Potentially unused imports: ['ThreadPoolExecutor', 'as_completed', 'Optional', 'numpy as np']",
+        "core.py: Potentially unused imports: ['Union']",
+        "ensemble.py: Potentially unused imports: ['numpy as np']",
+        "fusion_engine.py: Potentially unused imports: ['numpy as np']",
+        "global_orchestrator.py: Potentially unused imports: ['json', 'Path', 'Optional']",
+        "intelligent_scaling.py: Potentially unused imports: ['numpy as np']",
+        "monitoring.py: Potentially unused imports: ['numpy as np']",
+        "neural_architecture_search.py: Potentially unused imports: ['numpy as np', 'json', 'Path', 'Optional']",
+        "neural_processor.py: Potentially unused imports: ['numpy as np']",
+        "olfactory_analyzer.py: Potentially unused imports: ['numpy as np']",
+        "optimized_api.py: Potentially unused imports: ['numpy as np', 'global_performance_optimizer']",
+        "performance.py: Potentially unused imports: ['numpy as np']",
+        "performance_optimization.py: Potentially unused imports: ['numpy as np']",
+        "performance_optimizer.py: Potentially unused imports: ['numpy as np']",
+        "quantum_enhanced_optimization.py: Potentially unused imports: ['Tuple', 'Union', 'numpy as np', 'minimize', 'AdvancedCacheManager', 'CircuitBreaker']",
+        "quantum_neural_optimizer.py: Potentially unused imports: ['math', 'numpy as np', 'Tuple', 'Union', 'Path']",
+        "quantum_optimization_research.py: Potentially unused imports: ['numpy as np']",
+        "real_time_optimization.py: Potentially unused imports: ['Callable', 'Tuple', 'numpy as np', 'minimize_scalar']",
+        "research_aware_monitoring.py: Potentially unused imports: ['asyncio', 'numpy as np', 'psutil']",
+        "research_integration.py: Potentially unused imports: ['numpy as np', 'QuantumAnnealingOptimizer']",
+        "robust_api.py: Potentially unused imports: ['numpy as np', 'SecurityConfig', 'SecurityManager', 'SecurityMiddleware', 'SecurityLevel', 'ProductionResearchOrchestrator', 'global_error_manager', 'robust_error_handler', 'AdaptiveRetryPolicy']",
+        "security.py: Potentially unused imports: ['Dict', 'List', 'Optional', 'Tuple', 'numpy as np']",
+        "simple_api.py: Potentially unused imports: ['numpy as np']",
+        "robust_core.py: Potentially unused imports: ['asynccontextmanager', 'timedelta', 'Union', 'Callable', 'TokenValidator']",
+        "advanced_monitoring.py: Potentially unused imports: ['json', 'timedelta', 'uuid', 'numpy as np']",
+        "scale_optimizer.py: Potentially unused imports: ['json', 'ABC', 'abstractmethod', 'timedelta', 'Union', 'uuid', 'numpy as np', 'ThreadPoolExecutor', 'as_completed', 'psutil']"
+      ]
+    },
+    "Security": {
+      "name": "Security",
+      "passed": false,
+      "score": 0.4,
+      "details": {
+        "secrets": {
+          "violations_found": 4,
+          "files_scanned": 49
+        },
+        "dangerous_functions": {
+          "violations_found": 6,
+          "threshold": 5
+        },
+        "input_validation": {
+          "validation_functions_found": 2,
+          "security_classes_found": 3,
+          "total_required": 6
+        },
+        "authentication": {
+          "auth_features_found": 5,
+          "total_features": 5
+        },
+        "encryption": {
+          "security_indicators_found": 2,
+          "total_indicators": 6
+        }
+      },
+      "errors": [
+        "admin_api.py: hardcoded token found",
+        "deployment.py: potential secret (base64) found",
+        "global_deployment.py: potential secret (base64) found",
+        "global_deployment.py: potential secret (base64) found"
+      ],
+      "warnings": [
+        "adaptive_fusion_research.py: eval() usage",
+        "caching_system.py: pickle.load() - potential security risk",
+        "core.py: __import__() usage",
+        "quantum_optimization_research.py: eval() usage",
+        "simple_cli.py: __import__() usage",
+        "enhanced_cli.py: __import__() usage"
+      ]
+    },
+    "Performance": {
+      "name": "Performance",
+      "passed": true,
+      "score": 0.8,
+      "details": {
+        "performance_module": {
+          "classes_found": 4,
+          "total_classes": 4
+        },
+        "optimization": {
+          "features_found": 5,
+          "total_features": 5
+        },
+        "caching": {
+          "cache_features_found": 5,
+          "total_features": 5
+        },
+        "monitoring": {
+          "monitoring_features_found": 4,
+          "total_features": 4
+        }
+      },
+      "errors": [
+        "Import benchmark failed: No module named 'numpy'"
+      ],
+      "warnings": []
+    },
+    "Tests": {
+      "name": "Tests",
+      "passed": false,
+      "score": 0.5,
+      "details": {
+        "test_structure": {
+          "test_files_found": 13,
+          "expected_test_files": 48,
+          "missing_test_files": 41
+        },
+        "test_coverage": {
+          "total_functions": 558,
+          "test_functions": 246,
+          "coverage_estimate": 0.44086021505376344,
+          "threshold": 0.3
+        },
+        "test_execution": {
+          "total_test_files": 3,
+          "passed_test_files": 1,
+          "test_results": [
+            {
+              "file": "simple_test.py",
+              "returncode": 1,
+              "passed": false
+            },
+            {
+              "file": "test_robust_simple.py",
+              "returncode": 1,
+              "passed": false
+            },
+            {
+              "file": "test_optimized_system.py",
+              "returncode": 0,
+              "passed": true
+            }
+          ]
+        },
+        "test_quality": {
+          "test_files_checked": 3,
+          "quality_score": 3.5,
+          "threshold": 2.0
+        }
+      },
+      "errors": [],
+      "warnings": [
+        "Missing test files: ['test_adaptive_fusion_research.py', 'test_admin_api.py', 'test_advanced_cli.py', 'test_advanced_security.py', 'test_auto_scaler.py']"
+      ]
+    },
+    "Deployment": {
+      "name": "Deployment",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "containerization": {
+          "docker_files_found": 3,
+          "total_docker_files": 3,
+          "dockerfile_practices": 3,
+          "total_practices": 4
+        },
+        "kubernetes": {
+          "k8s_features_found": 5,
+          "total_k8s_features": 5,
+          "helm_features_found": 3,
+          "total_helm_features": 4
+        },
+        "global_deployment": {
+          "global_features_found": 6,
+          "total_features": 6
+        },
+        "configuration": {
+          "config_files_found": 3,
+          "total_config_files": 3,
+          "config_features_found": 3
+        },
+        "monitoring_integration": {
+          "monitoring_indicators_found": 7,
+          "threshold": 5
+        }
+      },
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "timestamp": 1756185544.40694
 }
