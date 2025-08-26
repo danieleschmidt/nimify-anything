@@ -1,0 +1,463 @@
+{
+  "timestamp": "2025-08-26T05:21:34.869432",
+  "project_path": "/root/repo",
+  "overall_score": 76.59574468085106,
+  "passed": true,
+  "gate_results": [
+    {
+      "gate": "Code Quality",
+      "score": 80.0,
+      "passed": true,
+      "checks": [
+        {
+          "check": "syntax_validation",
+          "success": false,
+          "result": {
+            "success": false,
+            "files_checked": 105,
+            "syntax_errors": [
+              {
+                "file": "/root/repo/scripts/compliance-check.py",
+                "error": "invalid syntax (<unknown>, line 225)",
+                "line": 225
+              }
+            ]
+          },
+          "duration": 0.5549287796020508,
+          "timestamp": "2025-08-26T05:21:31.153519",
+          "error": null
+        },
+        {
+          "check": "import_validation",
+          "success": true,
+          "result": {
+            "success": true,
+            "files_analyzed": 105,
+            "import_issues": [],
+            "total_imports": 166,
+            "missing_critical_imports": []
+          },
+          "duration": 0.0336916446685791,
+          "timestamp": "2025-08-26T05:21:31.187266",
+          "error": null
+        },
+        {
+          "check": "structure_validation",
+          "success": true,
+          "result": {
+            "success": true,
+            "missing_files": [],
+            "python_modules_count": 50,
+            "has_proper_structure": true
+          },
+          "duration": 0.00043392181396484375,
+          "timestamp": "2025-08-26T05:21:31.187729",
+          "error": null
+        },
+        {
+          "check": "documentation_validation",
+          "success": true,
+          "result": {
+            "success": true,
+            "documentation_coverage": 87.34982332155477,
+            "documented_items": 1236,
+            "total_items": 1415
+          },
+          "duration": 0.6196708679199219,
+          "timestamp": "2025-08-26T05:21:31.807435",
+          "error": null
+        },
+        {
+          "check": "complexity_validation",
+          "success": true,
+          "result": {
+            "success": true,
+            "complex_functions": [
+              {
+                "function": "analyze",
+                "file": "src/nimify/advanced_cli.py",
+                "complexity": 18,
+                "line": 110
+              },
+              {
+                "function": "_analyze_performance_trends",
+                "file": "src/nimify/global_orchestrator.py",
+                "complexity": 16,
+                "line": 854
+              },
+              {
+                "function": "_generate_scaling_recommendation",
+                "file": "src/nimify/intelligent_scaling.py",
+                "complexity": 11,
+                "line": 332
+              },
+              {
+                "function": "_check_alerts",
+                "file": "src/nimify/monitoring.py",
+                "complexity": 11,
+                "line": 298
+              },
+              {
+                "function": "_extract_optimization_insights",
+                "file": "src/nimify/neural_architecture_search.py",
+                "complexity": 11,
+                "line": 789
+              },
+              {
+                "function": "health_check",
+                "file": "src/nimify/optimized_api.py",
+                "complexity": 11,
+                "line": 422
+              },
+              {
+                "function": "auto_tune_performance",
+                "file": "src/nimify/performance_optimization.py",
+                "complexity": 11,
+                "line": 530
+              },
+              {
+                "function": "optimize",
+                "file": "src/nimify/quantum_optimization_research.py",
+                "complexity": 14,
+                "line": 222
+              },
+              {
+                "function": "optimize_model",
+                "file": "src/nimify/quantum_optimization_research.py",
+                "complexity": 12,
+                "line": 518
+              },
+              {
+                "function": "_classify_error",
+                "file": "src/nimify/robust_error_handling.py",
+                "complexity": 14,
+                "line": 301
+              },
+              {
+                "function": "_classify_error",
+                "file": "src/nimify/enhanced_error_handling.py",
+                "complexity": 15,
+                "line": 309
+              },
+              {
+                "function": "predict_robust",
+                "file": "src/nimify/robust_core.py",
+                "complexity": 12,
+                "line": 562
+              },
+              {
+                "function": "_check_security_practices",
+                "file": "src/nimify/autonomous_quality_gates.py",
+                "complexity": 13,
+                "line": 368
+              }
+            ],
+            "total_functions": 1155,
+            "avg_complexity": 5.0
+          },
+          "duration": 0.8449234962463379,
+          "timestamp": "2025-08-26T05:21:32.652411",
+          "error": null
+        }
+      ],
+      "recommendations": [
+        "Fix Python syntax errors in identified files"
+      ]
+    },
+    {
+      "gate": "Security",
+      "score": 60.0,
+      "passed": false,
+      "checks": [
+        {
+          "check": "secrets_scan",
+          "success": false,
+          "result": {
+            "success": false,
+            "potential_secrets": [
+              {
+                "file": "deploy_production_ready.py",
+                "type": "Potential Secret",
+                "line": 302
+              },
+              {
+                "file": "src/nimify/admin_api.py",
+                "type": "Token",
+                "line": 65
+              },
+              {
+                "file": "src/nimify/deployment.py",
+                "type": "Potential Secret",
+                "line": 512
+              },
+              {
+                "file": "src/nimify/deployment.py",
+                "type": "Potential Secret",
+                "line": 524
+              },
+              {
+                "file": "src/nimify/global_deployment.py",
+                "type": "Potential Secret",
+                "line": 297
+              },
+              {
+                "file": "src/nimify/global_deployment.py",
+                "type": "Potential Secret",
+                "line": 312
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/ap-northeast-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 46
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/ap-northeast-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 67
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/ap-southeast-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 46
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/ap-southeast-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 67
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/eu-central-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 46
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/eu-central-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 67
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/eu-west-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 46
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/eu-west-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 67
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/us-east-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 46
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/us-east-1/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 67
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/us-west-2/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 46
+              },
+              {
+                "file": "nimify-anything-production-deployment/global/nimify-anything-global-deployment/regions/us-west-2/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 67
+              },
+              {
+                "file": "nimify-anything-production-deployment/kubernetes/base/deployment.yaml",
+                "type": "Potential Secret",
+                "line": 84
+              }
+            ],
+            "files_scanned": 186
+          },
+          "duration": 0.16456341743469238,
+          "timestamp": "2025-08-26T05:21:32.817322",
+          "error": null
+        },
+        {
+          "check": "security_practices",
+          "success": true,
+          "result": {
+            "success": true,
+            "implemented_practices": {
+              "input_validation": true,
+              "error_handling": true,
+              "authentication": true,
+              "authorization": true,
+              "logging": true
+            },
+            "practices_count": 5
+          },
+          "duration": 0.015320539474487305,
+          "timestamp": "2025-08-26T05:21:32.832688",
+          "error": null
+        },
+        {
+          "check": "dependency_security",
+          "success": true,
+          "result": {
+            "success": true,
+            "dependencies_checked": 45,
+            "vulnerabilities": []
+          },
+          "duration": 0.0005445480346679688,
+          "timestamp": "2025-08-26T05:21:32.833267",
+          "error": null
+        },
+        {
+          "check": "input_validation",
+          "success": false,
+          "result": {
+            "success": false,
+            "validation_rate": 23.463203463203463,
+            "validated_functions": 271,
+            "total_functions": 1155
+          },
+          "duration": 1.3582017421722412,
+          "timestamp": "2025-08-26T05:21:34.191502",
+          "error": null
+        },
+        {
+          "check": "security_headers",
+          "success": true,
+          "result": {
+            "success": true,
+            "security_headers_found": [
+              "security",
+              "TrustedHostMiddleware",
+              "CORSMiddleware"
+            ],
+            "files_checked": 5
+          },
+          "duration": 0.0012373924255371094,
+          "timestamp": "2025-08-26T05:21:34.192778",
+          "error": null
+        }
+      ],
+      "recommendations": [
+        "Remove hardcoded secrets and use environment variables",
+        "Add comprehensive input validation to all functions"
+      ]
+    },
+    {
+      "gate": "Performance",
+      "score": 100.0,
+      "passed": true,
+      "checks": [
+        {
+          "check": "monitoring_implementation",
+          "success": true,
+          "result": {
+            "success": true,
+            "monitoring_features": [
+              "counter",
+              "prometheus",
+              "histogram",
+              "gauge",
+              "telemetry",
+              "metrics",
+              "monitoring"
+            ],
+            "files_checked": 50
+          },
+          "duration": 0.015215635299682617,
+          "timestamp": "2025-08-26T05:21:34.208332",
+          "error": null
+        },
+        {
+          "check": "caching_implementation",
+          "success": true,
+          "result": {
+            "success": true,
+            "caching_implementations": [
+              "memcached",
+              "redis",
+              "cache",
+              "lru_cache"
+            ],
+            "files_checked": 50
+          },
+          "duration": 0.013702392578125,
+          "timestamp": "2025-08-26T05:21:34.222160",
+          "error": null
+        },
+        {
+          "check": "async_implementation",
+          "success": true,
+          "result": {
+            "success": true,
+            "async_ratio": 25.36796536796537,
+            "async_functions": 293,
+            "total_functions": 1155
+          },
+          "duration": 0.6091604232788086,
+          "timestamp": "2025-08-26T05:21:34.831366",
+          "error": null
+        },
+        {
+          "check": "resource_optimization",
+          "success": true,
+          "result": {
+            "success": true,
+            "optimizations_found": [
+              "generator",
+              "asyncio",
+              "connection_pool",
+              "concurrent",
+              "lazy",
+              "threadpool",
+              "multiprocessing"
+            ],
+            "files_checked": 50
+          },
+          "duration": 0.018194198608398438,
+          "timestamp": "2025-08-26T05:21:34.849611",
+          "error": null
+        },
+        {
+          "check": "performance_practices",
+          "success": true,
+          "result": {
+            "success": true,
+            "practices_implemented": {
+              "batch_processing": true,
+              "streaming": true,
+              "pagination": true,
+              "compression": true,
+              "indexing": true
+            },
+            "practices_count": 5
+          },
+          "duration": 0.019419193267822266,
+          "timestamp": "2025-08-26T05:21:34.869077",
+          "error": null
+        }
+      ],
+      "recommendations": []
+    }
+  ],
+  "summary": {
+    "gates_passed": "2/3",
+    "gate_scores": {
+      "Code Quality": 80.0,
+      "Security": 60.0,
+      "Performance": 100.0
+    },
+    "weakest_area": "Security",
+    "strongest_area": "Performance",
+    "overall_status": "PASSED"
+  },
+  "recommendations": [
+    "Fix Python syntax errors in identified files",
+    "Remove hardcoded secrets and use environment variables",
+    "Add comprehensive input validation to all functions"
+  ],
+  "next_steps": [
+    "🟡 HIGH: Improve Security (current: 60.0%)",
+    "🟢 LOW: Improve Code Quality (current: 80.0%)",
+    "🟢 LOW: Improve Performance (current: 100.0%)"
+  ]
+}
