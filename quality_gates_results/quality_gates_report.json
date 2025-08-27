@@ -4,37 +4,37 @@
     "passed_gates": 0,
     "warning_gates": 2,
     "failed_gates": 2,
-    "overall_score": 63.42086437637969,
+    "overall_score": 64.07990657545578,
     "overall_status": "FAIL",
     "critical_issues": [
-      "Performance Validation: 53.9%",
+      "Performance Validation: 55.1%",
       "Compliance Validation: 31.2%"
     ],
     "recommendations": [
       "Add security configuration file",
-      "Implement comprehensive audit logging",
-      "Complete GDPR compliance documentation",
-      "Add connection pooling for database access",
-      "Validate disaster recovery procedures",
+      "Implement caching for frequently accessed data",
       "Complete end-to-end testing in staging environment",
       "Address identified security vulnerabilities in code",
-      "Implement caching for frequently accessed data"
+      "Add connection pooling for database access",
+      "Validate disaster recovery procedures",
+      "Complete GDPR compliance documentation",
+      "Implement comprehensive audit logging"
     ],
     "production_ready": false,
     "deployment_approved": false,
-    "execution_summary": "Quality Gates Execution Summary\n===============================\n\nGates Status:\n  \u2705 Passed: 0/4\n  \u26a0\ufe0f  Warning: 2/4\n  \u274c Failed: 2/4\n\nOverall Score: 63.4%\nOverall Status: NEEDS IMPROVEMENT - Critical issues must be resolved\n\nGate Details:\n  \u26a0\ufe0f Security Scanning: 81.0%\n  \u274c Performance Validation: 53.9%\n  \u274c Compliance Validation: 31.2%\n  \u26a0\ufe0f Production Readiness: 87.5%"
+    "execution_summary": "Quality Gates Execution Summary\n===============================\n\nGates Status:\n  \u2705 Passed: 0/4\n  \u26a0\ufe0f  Warning: 2/4\n  \u274c Failed: 2/4\n\nOverall Score: 64.1%\nOverall Status: NEEDS IMPROVEMENT - Critical issues must be resolved\n\nGate Details:\n  \u26a0\ufe0f Security Scanning: 82.5%\n  \u274c Performance Validation: 55.1%\n  \u274c Compliance Validation: 31.2%\n  \u26a0\ufe0f Production Readiness: 87.5%"
   },
   "detailed_results": [
     {
       "gate_name": "Security Scanning",
       "status": "WARN",
-      "score": 81.00220750551877,
+      "score": 82.46680767437213,
       "details": {
-        "code_security": 83.33333333333334,
+        "code_security": 88.23529411764706,
         "dependencies": 92.0,
         "configuration": 50.0,
-        "secrets": 98.67549668874173,
-        "vulnerabilities_found": 5,
+        "secrets": 99.63193657984145,
+        "vulnerabilities_found": 6,
         "compliance_issues": 0
       },
       "recommendations": [
@@ -45,18 +45,18 @@
         "Enable security monitoring and alerting",
         "Conduct regular penetration testing"
       ],
-      "execution_time": 0.0948953628540039,
-      "timestamp": "2025-08-16 20:23:41"
+      "execution_time": 7.321274995803833,
+      "timestamp": "2025-08-27 20:49:08"
     },
     {
       "gate_name": "Performance Validation",
       "status": "FAIL",
-      "score": 53.93125,
+      "score": 55.102818627450986,
       "details": {
         "code_performance": 0.0,
-        "memory_usage": 78.33333333333333,
+        "memory_usage": 77.45098039215686,
         "load_testing": 54.725,
-        "scalability": 82.66666666666666,
+        "scalability": 88.23529411764706,
         "benchmark_results": {
           "startup_time": 2.3,
           "memory_footprint_mb": 156,
@@ -75,8 +75,8 @@
         "Use CDN for static content delivery",
         "Optimize database queries and indexing"
       ],
-      "execution_time": 0.012858867645263672,
-      "timestamp": "2025-08-16 20:23:41"
+      "execution_time": 0.019436359405517578,
+      "timestamp": "2025-08-27 20:49:08"
     },
     {
       "gate_name": "Compliance Validation",
@@ -103,8 +103,8 @@
         "Add encryption for sensitive data",
         "Regular compliance audits and assessments"
       ],
-      "execution_time": 0.00035309791564941406,
-      "timestamp": "2025-08-16 20:23:41"
+      "execution_time": 0.0003020763397216797,
+      "timestamp": "2025-08-27 20:49:08"
     },
     {
       "gate_name": "Production Readiness",
@@ -128,10 +128,10 @@
         "Prepare incident response team",
         "Schedule production deployment window"
       ],
-      "execution_time": 0.00024008750915527344,
-      "timestamp": "2025-08-16 20:23:41"
+      "execution_time": 0.00027632713317871094,
+      "timestamp": "2025-08-27 20:49:08"
     }
   ],
-  "execution_timestamp": "2025-08-16 20:23:41",
-  "total_execution_time": 0.10834741592407227
+  "execution_timestamp": "2025-08-27 20:49:08",
+  "total_execution_time": 7.341289758682251
 }

@@ -109,6 +109,17 @@ class ConfigurationError(NimifyError):
         )
 
 
+class ModelLoadingError(ModelError):
+    """Model loading specific errors."""
+    
+    def __init__(self, message: str, **kwargs):
+        super().__init__(
+            message=message,
+            recovery_suggestions="Check model file path, format, and permissions",
+            **kwargs
+        )
+
+
 class InfrastructureError(NimifyError):
     """Infrastructure-related errors."""
     
@@ -208,6 +219,13 @@ def with_error_handling(
                     
         return wrapper
     return decorator
+
+
+# Create global error manager instance        
+error_manager = ErrorHandler()
+
+# Alias for backwards compatibility
+retry = retry_on_error
 
 
 class RetryableError(NimifyError):

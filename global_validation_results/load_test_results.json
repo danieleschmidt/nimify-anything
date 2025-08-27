@@ -1,40 +1,40 @@
 {
   "global_summary": {
     "total_requests": 3984,
-    "total_failures": 32,
-    "success_rate": 99.19678714859438,
-    "avg_response_time_ms": 57.058327606806046,
+    "total_failures": 18,
+    "success_rate": 99.54819277108435,
+    "avg_response_time_ms": 60.447194083678966,
     "requests_per_second": 132.8
   },
   "regional_results": {
     "us-east-1": {
       "region": "us-east-1",
       "total_requests": 1328,
-      "failures": 12,
-      "success_rate": 99.09638554216868,
-      "avg_response_time": 11.386968527475096,
-      "p95_response_time": 17.080452791212643,
-      "p99_response_time": 25.051330760445214,
+      "failures": 5,
+      "success_rate": 99.62349397590361,
+      "avg_response_time": 32.788845826207265,
+      "p95_response_time": 49.1832687393109,
+      "p99_response_time": 72.13546081765598,
       "requests_per_second": 44.266666666666666
     },
     "eu-west-1": {
       "region": "eu-west-1",
       "total_requests": 1328,
-      "failures": 8,
-      "success_rate": 99.3975903614458,
-      "avg_response_time": 59.36420503139773,
-      "p95_response_time": 89.0463075470966,
-      "p99_response_time": 130.601251069075,
+      "failures": 9,
+      "success_rate": 99.32228915662651,
+      "avg_response_time": 52.62224301136341,
+      "p95_response_time": 78.9333645170451,
+      "p99_response_time": 115.7689346249995,
       "requests_per_second": 44.266666666666666
     },
     "ap-northeast-1": {
       "region": "ap-northeast-1",
       "total_requests": 1328,
-      "failures": 12,
-      "success_rate": 99.09638554216868,
-      "avg_response_time": 100.4238092615453,
-      "p95_response_time": 150.63571389231794,
-      "p99_response_time": 220.93238037539967,
+      "failures": 4,
+      "success_rate": 99.69879518072288,
+      "avg_response_time": 95.93049341346622,
+      "p95_response_time": 143.89574012019932,
+      "p99_response_time": 211.0470855096257,
       "requests_per_second": 44.266666666666666
     }
   }

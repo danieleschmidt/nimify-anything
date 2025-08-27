@@ -3,15 +3,15 @@
     "service_name": "nimify-service",
     "version": "1.0.0",
     "environment": "production",
-    "timestamp": 1755130603.6253088,
-    "total_duration": 0.00032401084899902344
+    "timestamp": 1756327765.8975816,
+    "total_duration": 0.0007281303405761719
   },
   "stages": [
     {
       "stage": "preparation",
       "status": "failed",
       "message": "Missing required tools: kubectl (Kubernetes CLI), helm (Helm package manager)",
-      "duration": 0.00032401084899902344,
+      "duration": 0.0007281303405761719,
       "artifacts": [],
       "metrics": {}
     }
