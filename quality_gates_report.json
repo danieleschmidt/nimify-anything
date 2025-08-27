@@ -1,7 +1,7 @@
 {
   "overall_passed": false,
-  "overall_score": 0.62,
-  "gates_passed": 2,
+  "overall_score": 0.71,
+  "gates_passed": 3,
   "total_gates": 5,
   "individual_results": {
     "Code Quality": {
@@ -10,52 +10,54 @@
       "score": 0.4,
       "details": {
         "structure": {
-          "total_modules": 49,
+          "total_modules": 51,
           "required_modules_present": 10,
-          "large_modules": 3
+          "large_modules": 4
         },
         "documentation": {
-          "files_checked": 48,
-          "documentation_score": 0.6999999999999997,
+          "files_checked": 50,
+          "documentation_score": 0.6999999999999996,
           "threshold": 0.6
         },
         "naming": {
-          "violations_count": 82,
+          "violations_count": 84,
           "threshold": 20
         },
         "complexity": {
-          "high_complexity_functions": 58,
+          "high_complexity_functions": 63,
           "threshold": 10
         },
         "imports": {
-          "files_with_import_issues": 32,
+          "files_with_import_issues": 34,
           "threshold": 5
         }
       },
       "errors": [],
       "warnings": [
-        "Large modules detected: ['adaptive_fusion_research.py: 1119 lines', 'global_orchestrator.py: 1066 lines', 'quantum_optimization_research.py: 1452 lines']",
+        "Large modules detected: ['adaptive_fusion_research.py: 1119 lines', 'global_orchestrator.py: 1066 lines', 'production_deployment.py: 1096 lines', 'quantum_optimization_research.py: 1452 lines']",
         "adaptive_fusion_research.py: Class 'import' should be PascalCase",
         "adaptive_fusion_research.py: Class 'class' should be PascalCase",
+        "advanced_monitoring.py: Class 'class' should be PascalCase",
         "advanced_security.py: Class 'from' should be PascalCase",
         "advanced_security.py: Class 'class' should be PascalCase",
         "auto_scaler.py: Class 'class' should be PascalCase",
         "auto_scaler.py: Class 'class' should be PascalCase",
+        "autonomous_quality_gates.py: Class 'for' should be PascalCase",
         "autonomous_research_agent.py: Class 'class' should be PascalCase",
         "autonomous_research_agent.py: Class 'for' should be PascalCase",
-        "caching_system.py: Class 'from' should be PascalCase",
-        "caching_system.py: Class 'class' should be PascalCase",
-        "... and 72 more naming violations",
+        "... and 74 more naming violations",
         "adaptive_fusion_research.py:__init__ (complexity: 27)",
         "advanced_cli.py:analyze (complexity: 19)",
+        "advanced_monitoring.py:__init__ (complexity: 36)",
+        "advanced_monitoring.py:__init__ (complexity: 20)",
         "advanced_security.py:__init__ (complexity: 71)",
-        "auto_scaler.py:__init__ (complexity: 23)",
-        "autonomous_research_agent.py:design_experiment (complexity: 29)",
-        "... and 53 more complex functions",
+        "... and 58 more complex functions",
         "adaptive_fusion_research.py: Potentially unused imports: ['numpy as np']",
+        "advanced_monitoring.py: Potentially unused imports: ['json', 'timedelta', 'uuid', 'numpy as np']",
         "advanced_security.py: Potentially unused imports: ['HTTPBearer', 'HTTPAuthorizationCredentials']",
         "api.py: Potentially unused imports: ['numpy as np', 'onnxruntime as ort']",
         "auto_scaler.py: Potentially unused imports: ['numpy as np']",
+        "autonomous_quality_gates.py: Potentially unused imports: ['subprocess', 'Tuple']",
         "autonomous_research_agent.py: Potentially unused imports: ['numpy as np']",
         "circuit_breaker.py: Potentially unused imports: ['numpy as np']",
         "comprehensive_benchmarking.py: Potentially unused imports: ['ThreadPoolExecutor', 'as_completed', 'Optional', 'numpy as np']",
@@ -72,6 +74,7 @@
         "performance.py: Potentially unused imports: ['numpy as np']",
         "performance_optimization.py: Potentially unused imports: ['numpy as np']",
         "performance_optimizer.py: Potentially unused imports: ['numpy as np']",
+        "production_deployment.py: Potentially unused imports: ['json', 'timedelta', 'Path', 'Tuple', 'Union', 'tempfile', 'ScalingPolicy', 'AlertManager']",
         "quantum_enhanced_optimization.py: Potentially unused imports: ['Tuple', 'Union', 'numpy as np', 'minimize', 'AdvancedCacheManager', 'CircuitBreaker']",
         "quantum_neural_optimizer.py: Potentially unused imports: ['math', 'numpy as np', 'Tuple', 'Union', 'Path']",
         "quantum_optimization_research.py: Potentially unused imports: ['numpy as np']",
@@ -79,11 +82,10 @@
         "research_aware_monitoring.py: Potentially unused imports: ['asyncio', 'numpy as np', 'psutil']",
         "research_integration.py: Potentially unused imports: ['numpy as np', 'QuantumAnnealingOptimizer']",
         "robust_api.py: Potentially unused imports: ['numpy as np', 'SecurityConfig', 'SecurityManager', 'SecurityMiddleware', 'SecurityLevel', 'ProductionResearchOrchestrator', 'global_error_manager', 'robust_error_handler', 'AdaptiveRetryPolicy']",
-        "security.py: Potentially unused imports: ['Dict', 'List', 'Optional', 'Tuple', 'numpy as np']",
-        "simple_api.py: Potentially unused imports: ['numpy as np']",
         "robust_core.py: Potentially unused imports: ['asynccontextmanager', 'timedelta', 'Union', 'Callable', 'TokenValidator']",
-        "advanced_monitoring.py: Potentially unused imports: ['json', 'timedelta', 'uuid', 'numpy as np']",
-        "scale_optimizer.py: Potentially unused imports: ['json', 'ABC', 'abstractmethod', 'timedelta', 'Union', 'uuid', 'numpy as np', 'ThreadPoolExecutor', 'as_completed', 'psutil']"
+        "scale_optimizer.py: Potentially unused imports: ['json', 'ABC', 'abstractmethod', 'timedelta', 'Union', 'uuid', 'numpy as np', 'ThreadPoolExecutor', 'as_completed', 'psutil']",
+        "security.py: Potentially unused imports: ['Dict', 'List', 'Optional', 'Tuple', 'numpy as np']",
+        "simple_api.py: Potentially unused imports: ['numpy as np']"
       ]
     },
     "Security": {
@@ -93,7 +95,7 @@
       "details": {
         "secrets": {
           "violations_found": 4,
-          "files_scanned": 49
+          "files_scanned": 51
         },
         "dangerous_functions": {
           "violations_found": 6,
@@ -123,15 +125,15 @@
         "adaptive_fusion_research.py: eval() usage",
         "caching_system.py: pickle.load() - potential security risk",
         "core.py: __import__() usage",
+        "enhanced_cli.py: __import__() usage",
         "quantum_optimization_research.py: eval() usage",
-        "simple_cli.py: __import__() usage",
-        "enhanced_cli.py: __import__() usage"
+        "simple_cli.py: __import__() usage"
       ]
     },
     "Performance": {
       "name": "Performance",
       "passed": true,
-      "score": 0.8,
+      "score": 1.0,
       "details": {
         "performance_module": {
           "classes_found": 4,
@@ -148,37 +150,41 @@
         "monitoring": {
           "monitoring_features_found": 4,
           "total_features": 4
+        },
+        "benchmarks": {
+          "import_time_seconds": 0.10721087455749512,
+          "creation_time_seconds": 0.00015926361083984375,
+          "import_passed": true,
+          "creation_passed": true
         }
       },
-      "errors": [
-        "Import benchmark failed: No module named 'numpy'"
-      ],
+      "errors": [],
       "warnings": []
     },
     "Tests": {
       "name": "Tests",
-      "passed": false,
-      "score": 0.5,
+      "passed": true,
+      "score": 0.75,
       "details": {
         "test_structure": {
           "test_files_found": 13,
-          "expected_test_files": 48,
-          "missing_test_files": 41
+          "expected_test_files": 50,
+          "missing_test_files": 43
         },
         "test_coverage": {
-          "total_functions": 558,
+          "total_functions": 571,
           "test_functions": 246,
-          "coverage_estimate": 0.44086021505376344,
+          "coverage_estimate": 0.4308231173380035,
           "threshold": 0.3
         },
         "test_execution": {
           "total_test_files": 3,
-          "passed_test_files": 1,
+          "passed_test_files": 2,
           "test_results": [
             {
               "file": "simple_test.py",
-              "returncode": 1,
-              "passed": false
+              "returncode": 0,
+              "passed": true
             },
             {
               "file": "test_robust_simple.py",
@@ -200,7 +206,7 @@
       },
       "errors": [],
       "warnings": [
-        "Missing test files: ['test_adaptive_fusion_research.py', 'test_admin_api.py', 'test_advanced_cli.py', 'test_advanced_security.py', 'test_auto_scaler.py']"
+        "Missing test files: ['test_adaptive_fusion_research.py', 'test_admin_api.py', 'test_advanced_cli.py', 'test_advanced_monitoring.py', 'test_advanced_security.py']"
       ]
     },
     "Deployment": {
@@ -238,5 +244,5 @@
       "warnings": []
     }
   },
-  "timestamp": 1756185544.40694
+  "timestamp": 1756327720.9179096
 }
