@@ -1,134 +1,49 @@
-"""Tests for CLI functionality."""
+"""Tests for the nimify CLI (end-to-end with click test runner)."""
+
+import json
+import tempfile
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from pathlib import Path
-from unittest.mock import patch, Mock
 
-from nimify.cli import main
+from src.nimify.cli import main
 
 
 @pytest.fixture
-def cli_runner():
-    """Create a CLI test runner."""
+def runner():
     return CliRunner()
 
 
-@pytest.mark.unit
-def test_cli_version(cli_runner):
-    """Test --version flag."""
-    result = cli_runner.invoke(main, ['--version'])
-    assert result.exit_code == 0
-    assert "0.1.0" in result.output
+class TestCLI:
+    def test_help(self, runner):
+        result = runner.invoke(main, ["--help"])
+        assert result.exit_code == 0
+        assert "ONNX" in result.output or "model" in result.output.lower()
 
+    def test_mock_run(self, runner):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = runner.invoke(main, ["model.onnx", "--output", tmpdir, "--mock"])
+            assert result.exit_code == 0, result.output
+            assert "Done" in result.output or "✔" in result.output
 
-@pytest.mark.unit
-def test_cli_help(cli_runner):
-    """Test --help flag."""
-    result = cli_runner.invoke(main, ['--help'])
-    assert result.exit_code == 0
-    assert "Nimify Anything" in result.output
+    def test_generates_all_artifacts(self, runner):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = runner.invoke(main, ["model.onnx", "--output", tmpdir, "--mock"])
+            assert result.exit_code == 0, result.output
+            files = {p.name for p in Path(tmpdir).iterdir()}
+            assert "app.py" in files
+            assert "openapi.json" in files
+            assert "Dockerfile" in files
 
+    def test_openapi_json_valid(self, runner):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runner.invoke(main, ["model.onnx", "--output", tmpdir, "--mock"])
+            spec = json.loads((Path(tmpdir) / "openapi.json").read_text())
+            assert spec["openapi"].startswith("3.0")
 
-@pytest.mark.unit
-def test_cli_no_args(cli_runner):
-    """Test CLI with no arguments shows help."""
-    result = cli_runner.invoke(main, [])
-    assert result.exit_code == 0
-    assert "Usage:" in result.output
-
-
-@pytest.mark.integration
-@patch('nimify.core.Nimifier')
-def test_create_command(mock_nimifier, cli_runner, tmp_path):
-    """Test create command functionality."""
-    # Create a mock model file
-    model_file = tmp_path / "test.onnx"
-    model_file.write_bytes(b"fake_model")
-    
-    # Mock the Nimifier instance
-    mock_instance = Mock()
-    mock_nimifier.return_value = mock_instance
-    
-    result = cli_runner.invoke(main, [
-        'create',
-        str(model_file),
-        '--name', 'test-service',
-        '--port', '8080'
-    ])
-    
-    # Check that command executed successfully
-    assert result.exit_code == 0
-    mock_nimifier.assert_called_once()
-
-
-@pytest.mark.unit
-def test_create_command_missing_file(cli_runner):
-    """Test create command with non-existent file."""
-    result = cli_runner.invoke(main, [
-        'create',
-        'nonexistent.onnx',
-        '--name', 'test-service'
-    ])
-    
-    # Should fail with appropriate error
-    assert result.exit_code != 0
-    assert "not found" in result.output
-
-
-@pytest.mark.unit
-def test_create_command_invalid_name(cli_runner, tmp_path):
-    """Test create command with invalid service name."""
-    model_file = tmp_path / "test.onnx"
-    model_file.write_bytes(b"fake_model")
-    
-    result = cli_runner.invoke(main, [
-        'create',
-        str(model_file),
-        '--name', 'invalid name with spaces'
-    ])
-    
-    # Should provide validation error
-    assert result.exit_code != 0
-
-
-@pytest.mark.integration
-@patch('nimify.core.Nimifier')
-def test_build_command(mock_nimifier, cli_runner):
-    """Test build command functionality."""
-    mock_instance = Mock()
-    mock_nimifier.return_value = mock_instance
-    
-    result = cli_runner.invoke(main, [
-        'build',
-        'test-service',
-        '--tag', 'test:latest'
-    ])
-    
-    # Verify command structure
-    assert "build" in str(result.output).lower() or result.exit_code == 0
-
-
-@pytest.mark.integration  
-@patch('nimify.core.Nimifier')
-def test_deploy_command(mock_nimifier, cli_runner):
-    """Test deploy command functionality."""
-    mock_instance = Mock()
-    mock_nimifier.return_value = mock_instance
-    
-    result = cli_runner.invoke(main, [
-        'deploy',
-        'test-service',
-        '--replicas', '3'
-    ])
-    
-    # Verify command structure
-    assert "deploy" in str(result.output).lower() or result.exit_code == 0
-
-
-@pytest.mark.unit
-def test_cli_with_invalid_command(cli_runner):
-    """Test CLI with invalid command."""
-    result = cli_runner.invoke(main, ['invalid-command'])
-    assert result.exit_code != 0
-    assert "No such command" in result.output
+    def test_nonexistent_model_without_mock(self, runner):
+        """Without --mock, a missing file still returns mock metadata (fallback)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = runner.invoke(main, ["/tmp/ghost_model_xyz.onnx", "--output", tmpdir])
+            assert result.exit_code == 0

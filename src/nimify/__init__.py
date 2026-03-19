@@ -1,13 +1,3 @@
-"""Nimify Anything: CLI that wraps any ONNX or TensorRT engine into an NVIDIA NIM microservice."""
+"""nimify-anything: wrap any ONNX model into an NVIDIA NIM-style microservice."""
 
-__version__ = "0.1.0"
-__author__ = "Daniel Schmidt"
-
-from .core import ModelConfig, Nimifier, NIMService
-
-__all__ = [
-    "Nimifier", 
-    "ModelConfig", 
-    "NIMService",
-    "__version__"
-]
+__version__ = "0.2.0"
